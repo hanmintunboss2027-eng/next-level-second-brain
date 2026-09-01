@@ -1,11 +1,20 @@
-import { readJson, KEYS, storageMode } from '../../../lib/store';
+import { storageMode } from '../../../lib/store';
+import { allNotes } from '../../../lib/docs';
 import { checkAccess, denied } from '../../../lib/auth';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
+/* "Business in a Box", "business-in-a-box.md" and "Business_in_a_Box" are
+   the same note. Normalising every separator to one dash is what makes a
+   [[wikilink]] typed by hand actually land on the note it names. */
 function slug(s) {
-  return String(s).replace(/\.md$/i, '').split('/').pop().toLowerCase();
+  return String(s)
+    .replace(/\.md$/i, '')
+    .split('/').pop()
+    .toLowerCase()
+    .replace(/[^a-z0-9က-႟]+/g, '-')
+    .replace(/^-+|-+$/g, '');
 }
 
 /* Turn the notes into a node/link graph the browser can draw. */
@@ -18,6 +27,7 @@ function buildGraph(notes) {
     let group = 'wiki';
     if (/^Brand\//i.test(p)) group = 'brand';
     else if (/^Raw\//i.test(p)) group = 'raw';
+    else if (/^Documents\//i.test(p)) group = 'doc';
     else if (/^00-Inbox\//i.test(p)) group = 'inbox';
     else if (/^(Index|CLAUDE|Memory|Decisions)\.md$/i.test(p)) group = 'core';
     return { id: p, label: n.title || slug(p), group: group, links: 0 };
@@ -47,26 +57,30 @@ function buildGraph(notes) {
 export async function GET(request) {
   if (!checkAccess(request)) return denied();
 
-  const vault = await readJson(KEYS.vault, null);
-  if (!vault || !vault.notes || !vault.notes.length) {
+  const bundle = await allNotes();
+  const notes = bundle.notes;
+  const vault = bundle.vault;
+  if (!notes.length) {
     return Response.json({
-      empty: true, count: 0, storage: storageMode(),
+      empty: true, count: 0, docCount: 0, storage: storageMode(),
       graph: { nodes: [], links: [] }
     });
   }
 
-  const graph = buildGraph(vault.notes);
+  const graph = buildGraph(notes);
   const folders = {};
-  vault.notes.forEach(function (n) {
+  notes.forEach(function (n) {
     const f = n.path.indexOf('/') > 0 ? n.path.split('/')[0] : 'root';
     folders[f] = (folders[f] || 0) + 1;
   });
 
   return Response.json({
     empty: false,
-    count: vault.count,
-    updatedAt: vault.updatedAt,
-    sourceName: vault.sourceName || '',
+    count: notes.length,
+    vaultCount: bundle.vaultCount,
+    docCount: bundle.docCount,
+    updatedAt: (vault && vault.updatedAt) || '',
+    sourceName: (vault && vault.sourceName) || '',
     storage: storageMode(),
     folders: folders,
     orphans: graph.nodes.filter(function (n) { return n.links === 0; }).length,
