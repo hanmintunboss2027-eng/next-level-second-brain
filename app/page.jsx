@@ -144,13 +144,16 @@ export default function Page() {
     }
   }
 
-  async function saveBrand() {
+  /* `next` lets the settings drawer save an image the instant it is picked,
+     without waiting a render for the brand in state to catch up. */
+  async function saveBrand(next) {
+    const payload = next && typeof next === 'object' && !next.nativeEvent ? next : brand;
     setSaving(true);
     try {
       const res = await fetch('/api/brand', {
         method: 'POST',
         headers: Object.assign({ 'content-type': 'application/json' }, headers),
-        body: JSON.stringify({ brand: brand })
+        body: JSON.stringify({ brand: payload })
       });
       const data = await res.json();
       if (data && data.brand) { setBrand(data.brand); setReadiness(data.readiness || 0); }
