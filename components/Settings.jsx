@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { swatchesFromFile, mergePalette, assignRoles } from '../lib/palette';
 
 /* One drawer for everything the brain runs on: the vault, the brand system,
    how carousels get produced, and any documents added by hand. */
@@ -124,13 +125,19 @@ export default function Settings({ open, onClose, brand, onBrandChange, onSaveBr
     setBusy('');
   }
 
-  function applyAsset(slot, url) {
+  function applyAsset(slot, url, swatches) {
+    /* Every image the person adds contributes to the palette, so the colour
+       system is already half-built by the time they scroll down to it. */
+    const palette = mergePalette(brand.palette, swatches, 14);
     if (slot === 'reference') {
       return Object.assign({}, brand, {
-        references: (brand.references || []).concat([url]).filter(Boolean).slice(0, 4)
+        references: (brand.references || []).concat([url]).filter(Boolean).slice(0, 4),
+        palette: palette
       });
     }
-    return Object.assign({}, brand, slot === 'face' ? { faceUrl: url } : { logoUrl: url });
+    return Object.assign({}, brand,
+      slot === 'face' ? { faceUrl: url } : { logoUrl: url },
+      { palette: palette });
   }
 
   async function uploadAsset(file, slot) {
@@ -162,18 +169,89 @@ export default function Settings({ open, onClose, brand, onBrandChange, onSaveBr
       if (res.ok && data.url) { url = data.url; stored = true; }
     } catch (err) { /* the inline copy below is the fallback */ }
 
-    const next = applyAsset(slot, url);
+    /* Read the colours off the original file, not the stored URL — no CORS,
+       no storage, no key, and it works on the very first upload. */
+    let swatches = [];
+    try { swatches = await swatchesFromFile(file, slot === 'reference' ? 6 : 4); } catch (e) { }
+
+    const next = applyAsset(slot, url, swatches);
     onBrandChange(next);
     try { await onSaveBrand(next); } catch (e) { /* the note still shows */ }
 
     setMsg(stored
-      ? { kind: 'ok', text: 'Image saved to your brand kit.' }
+      ? {
+        kind: 'ok',
+        text: swatches.length
+          ? 'Image saved, and ' + swatches.length + ' colours read from it. Scroll to the colour system to use them.'
+          : 'Image saved to your brand kit.'
+      }
       : {
         kind: 'warn',
         text: 'Image added and saved with your brand — but no Blob store is attached, ' +
-          'so it will disappear when the site restarts. Vercel ▸ your project ▸ Storage ▸ ' +
-          'Add next to Blob Store, then Redeploy, and it stays for good.'
+          'so it will disappear when the site restarts. On Vercel, click Storage in the ' +
+          'left sidebar, add a Blob store, then Redeploy, and it stays for good.'
       });
+    setBusy('');
+  }
+
+  /* The colour half of "read my references": pure arithmetic on the palette
+     already collected, so it is instant and never fails. Fields the person
+     typed themselves are left alone unless they ask to overwrite. */
+  function fillColours(overwrite) {
+    const roles = assignRoles(brand.palette);
+    const keys = Object.keys(roles);
+    if (!keys.length) {
+      setMsg({ kind: 'bad', text: 'Add a logo or a reference image first — the colours come from those.' });
+      return;
+    }
+    const colors = Object.assign({}, brand.colors);
+    const filled = [];
+    keys.forEach(function (k) {
+      if (overwrite || !colors[k]) { colors[k] = roles[k]; filled.push(k); }
+    });
+    if (!filled.length) {
+      setMsg({ kind: 'warn', text: 'Your colour system is already filled in. Use "Replace" to overwrite it with the palette.' });
+      return;
+    }
+    const next = Object.assign({}, brand, { colors: colors });
+    onBrandChange(next);
+    Promise.resolve(onSaveBrand(next)).catch(function () { });
+    setMsg({ kind: 'ok', text: 'Filled ' + filled.join(', ') + ' from your images.' });
+  }
+
+  /* The wordy half. Only this part needs the API key, and it says so plainly
+     when there isn't one, rather than failing silently. */
+  async function readReferences() {
+    const images = (brand.references || []).concat(brand.logoUrl ? [brand.logoUrl] : []).slice(0, 4);
+    if (!images.length) {
+      setMsg({ kind: 'bad', text: 'Add a reference image first.' });
+      return;
+    }
+    setBusy('read'); setMsg(null);
+    try {
+      const res = await fetch('/api/brand/extract', {
+        method: 'POST',
+        headers: Object.assign({ 'content-type': 'application/json' }, headers),
+        body: JSON.stringify({ images: images })
+      });
+      const data = await res.json();
+      if (!res.ok) { setMsg({ kind: 'bad', text: data.error || 'Could not read the references.' }); }
+      else {
+        const f = data.fields || {};
+        const next = Object.assign({}, brand);
+        const filled = [];
+        Object.keys(f).forEach(function (k) {
+          if (!next[k]) { next[k] = f[k]; filled.push(k); }
+        });
+        if (!filled.length) {
+          setMsg({ kind: 'warn', text: 'Nothing new to add — those fields are already written.' });
+        } else {
+          onBrandChange(next);
+          await onSaveBrand(next);
+          setMsg({ kind: 'ok', text: 'Wrote ' + filled.length + ' fields from your references: ' + filled.join(', ') + '. Read them and edit anything that is not you.' });
+        }
+      }
+    } catch (err) { setMsg({ kind: 'bad', text: 'Could not read the references: ' + err.message }); }
     setBusy('');
   }
 
@@ -390,6 +468,37 @@ export default function Settings({ open, onClose, brand, onBrandChange, onSaveBr
                     e.target.value = '';
                     uploadAsset(f, 'reference');
                   }} />
+
+                {(brand.palette || []).length ? (
+                  <div className="palette">
+                    <span className="lbl">Read from your images</span>
+                    <div className="chips">
+                      {(brand.palette || []).map(function (h, i) {
+                        return <i key={i} style={{ background: h }} title={h} />;
+                      })}
+                    </div>
+                  </div>
+                ) : null}
+
+                <div className="reflab">
+                  <button className="btn" type="button" disabled={Boolean(busy)}
+                    onClick={function () { fillColours(false); }}>
+                    Fill my colour system
+                  </button>
+                  <button className="btn ghost" type="button" disabled={Boolean(busy)}
+                    onClick={function () { fillColours(true); }}>
+                    Replace
+                  </button>
+                  <button className="btn go" type="button" disabled={Boolean(busy)}
+                    onClick={readReferences}>
+                    {busy === 'read' ? 'Reading…' : 'Read the rest with AI →'}
+                  </button>
+                </div>
+                <p className="sub tiny">
+                  Colours are read here in your browser and cost nothing. The AI button writes
+                  the tone, feel, fonts and guardrails, and needs your OpenAI key. Neither one
+                  overwrites anything you typed yourself.
+                </p>
               </section>
 
               <section className="card2">
