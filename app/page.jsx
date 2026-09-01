@@ -306,9 +306,10 @@ export default function Page() {
             <div className="note bad">
               <b>No API key</b>
               <p>
-                Your site is live but it cannot think yet. Open your project on Vercel ▸ Settings ▸
-                Environment Variables, add <code>OPENAI_API_KEY</code> with the key pasted on its own —
-                no quotes, no spaces — then Redeploy.
+                Your site is live but it cannot think yet. Open your project on Vercel and click
+                <b> Environment Variables</b> in the left sidebar — it is a top-level item now, not
+                inside a Settings menu. Add <code>OPENAI_API_KEY</code> with the key pasted on its
+                own, no quotes and no spaces, then Redeploy.
               </p>
             </div>
           ) : null}
