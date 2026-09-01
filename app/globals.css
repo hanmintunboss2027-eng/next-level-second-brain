@@ -543,6 +543,21 @@ input::placeholder,textarea::placeholder{color:var(--ink-3)}
 }
 .asset-x:hover{border-color:var(--rose);color:var(--rose)}
 
+.palette{margin-top:16px}
+.palette .lbl{
+  display:block;font-family:var(--font-mono);font-size:9.5px;letter-spacing:.16em;
+  text-transform:uppercase;color:var(--ink-3);margin-bottom:8px;
+}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chips i{
+  width:30px;height:30px;border-radius:8px;border:1px solid var(--line);display:block;
+}
+.reflab{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+.reflab .btn.ghost{background:transparent;color:var(--ink-3)}
+.reflab .btn.go{background:var(--brand-grad);border:0;color:#fff}
+.reflab .btn.go:hover{filter:brightness(1.12)}
+.sub.tiny{font-size:12px;margin-top:10px;color:var(--ink-3)}
+
 .refs{display:flex;flex-wrap:wrap;gap:10px;margin-top:14px}
 .ref{position:relative;width:96px;height:96px;border-radius:11px;overflow:hidden;border:1px solid var(--line);display:block}
 .ref img{width:100%;height:100%;object-fit:cover;display:block}
