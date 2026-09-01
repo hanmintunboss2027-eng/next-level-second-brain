@@ -26,6 +26,45 @@ const TABS = [
   ['docs', 'Documents']
 ];
 
+/* A photo off a phone is 4–12 MB, which is more than any upload endpoint
+   should have to carry and more than the brand kit will ever display.
+   Shrink it in the browser first, and hand back both a small file to upload
+   and a data URL to fall back on when there is no storage attached. */
+function shrinkImage(file, max) {
+  return new Promise(function (resolve) {
+    if (/svg/i.test(file.type || '') || /\.svg$/i.test(file.name || '')) {
+      const r = new FileReader();
+      r.onload = function () { resolve({ blob: file, dataUrl: String(r.result), name: file.name || 'logo.svg' }); };
+      r.onerror = function () { resolve(null); };
+      r.readAsDataURL(file);
+      return;
+    }
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = function () {
+      const scale = Math.min(1, max / Math.max(img.width, img.height));
+      const w = Math.max(1, Math.round(img.width * scale));
+      const h = Math.max(1, Math.round(img.height * scale));
+      const c = document.createElement('canvas');
+      c.width = w; c.height = h;
+      const ctx = c.getContext('2d');
+      ctx.drawImage(img, 0, 0, w, h);
+      URL.revokeObjectURL(url);
+      /* PNG so a logo keeps its transparency, JPEG so a face stays small. */
+      const keepAlpha = /png|webp/i.test(file.type || '');
+      const type = keepAlpha ? 'image/png' : 'image/jpeg';
+      const base = String(file.name || 'image').replace(/\.[^.]+$/, '') || 'image';
+      let dataUrl = '';
+      try { dataUrl = c.toDataURL(type, 0.85); } catch (e) { resolve(null); return; }
+      c.toBlob(function (blob) {
+        resolve({ blob: blob || file, dataUrl: dataUrl, name: base + (keepAlpha ? '.png' : '.jpg') });
+      }, type, 0.85);
+    };
+    img.onerror = function () { URL.revokeObjectURL(url); resolve(null); };
+    img.src = url;
+  });
+}
+
 function isHex(v) { return /^#?[0-9a-fA-F]{6}$/.test(String(v || '').trim()); }
 function norm(v) {
   const s = String(v || '').trim();
@@ -85,24 +124,65 @@ export default function Settings({ open, onClose, brand, onBrandChange, onSaveBr
     setBusy('');
   }
 
+  function applyAsset(slot, url) {
+    if (slot === 'reference') {
+      return Object.assign({}, brand, {
+        references: (brand.references || []).concat([url]).filter(Boolean).slice(0, 4)
+      });
+    }
+    return Object.assign({}, brand, slot === 'face' ? { faceUrl: url } : { logoUrl: url });
+  }
+
   async function uploadAsset(file, slot) {
     if (!file) return;
+    if (!/^image\//i.test(file.type || '') && !/\.(png|jpe?g|webp|svg)$/i.test(file.name || '')) {
+      setMsg({ kind: 'bad', text: 'That file is not an image. Use a PNG, JPG, WebP or SVG.' });
+      return;
+    }
     setBusy(slot); setMsg(null);
+
+    const small = await shrinkImage(file, slot === 'reference' ? 1200 : 640);
+    if (!small) {
+      setMsg({ kind: 'bad', text: 'That image could not be opened. Export it again as PNG or JPG and try once more.' });
+      setBusy('');
+      return;
+    }
+
+    /* With a Blob store attached the image lives on a real URL forever.
+       Without one, the shrunk copy travels inside the brand itself, so the
+       kit still works today and only the permanence is missing. */
+    let url = small.dataUrl;
+    let stored = false;
     try {
       const fd = new FormData();
-      fd.append('file', file);
+      fd.append('file', new File([small.blob], small.name, { type: small.blob.type || file.type || 'image/png' }));
       fd.append('slot', slot);
       const res = await fetch('/api/assets', { method: 'POST', body: fd, headers: headers });
-      const data = await res.json();
-      if (!res.ok) { setMsg({ kind: 'bad', text: data.error || 'Upload failed.' }); }
-      else if (slot === 'reference') {
-        const next = (brand.references || []).concat([data.url]).slice(0, 4);
-        set('references', next);
-      } else {
-        set(slot === 'face' ? 'faceUrl' : 'logoUrl', data.url);
-      }
-    } catch (err) { setMsg({ kind: 'bad', text: 'Upload failed: ' + err.message }); }
+      const data = await res.json().catch(function () { return {}; });
+      if (res.ok && data.url) { url = data.url; stored = true; }
+    } catch (err) { /* the inline copy below is the fallback */ }
+
+    const next = applyAsset(slot, url);
+    onBrandChange(next);
+    try { await onSaveBrand(next); } catch (e) { /* the note still shows */ }
+
+    setMsg(stored
+      ? { kind: 'ok', text: 'Image saved to your brand kit.' }
+      : {
+        kind: 'warn',
+        text: 'Image added and saved with your brand — but no Blob store is attached, ' +
+          'so it will disappear when the site restarts. Vercel ▸ your project ▸ Storage ▸ ' +
+          'Add next to Blob Store, then Redeploy, and it stays for good.'
+      });
     setBusy('');
+  }
+
+  async function clearAsset(slot) {
+    const next = slot === 'face'
+      ? Object.assign({}, brand, { faceUrl: '' })
+      : Object.assign({}, brand, { logoUrl: '' });
+    onBrandChange(next);
+    try { await onSaveBrand(next); } catch (e) { /* nothing to report */ }
   }
 
   async function addDocFiles(files) {
@@ -172,8 +252,9 @@ export default function Settings({ open, onClose, brand, onBrandChange, onSaveBr
 
         <div className="drawer-b">
           {msg ? (
-            <div className={'note ' + (msg.kind === 'ok' ? 'ok' : 'bad')}>
-              <b>{msg.kind === 'ok' ? 'Done' : 'Did not work'}</b><p>{msg.text}</p>
+            <div className={'note ' + msg.kind}>
+              <b>{msg.kind === 'ok' ? 'Done' : msg.kind === 'warn' ? 'Saved, with a catch' : 'Did not work'}</b>
+              <p>{msg.text}</p>
             </div>
           ) : null}
 
@@ -236,23 +317,44 @@ export default function Settings({ open, onClose, brand, onBrandChange, onSaveBr
 
               <section className="card2">
                 <h4>Identity assets</h4>
-                <p className="sub">Use clean, high-resolution PNG, JPG or WebP files.</p>
+                <p className="sub">
+                  PNG, JPG, WebP or SVG. Big photos are fine — they are shrunk here in your
+                  browser before anything is sent.
+                </p>
                 <div className="assets">
-                  <button className="asset" onClick={function () { faceRef.current && faceRef.current.click(); }}>
-                    {brand.faceUrl ? <img src={brand.faceUrl} alt="" /> : <span className="ph">＋</span>}
-                    <b>Founder face</b>
-                    <span>{busy === 'face' ? 'Uploading…' : brand.faceUrl ? 'Replace' : 'Upload'}</span>
-                  </button>
-                  <button className="asset" onClick={function () { logoRef.current && logoRef.current.click(); }}>
-                    {brand.logoUrl ? <img src={brand.logoUrl} alt="" /> : <span className="ph">＋</span>}
-                    <b>Logo mark</b>
-                    <span>{busy === 'logo' ? 'Uploading…' : brand.logoUrl ? 'Replace' : 'Upload'}</span>
-                  </button>
+                  {[['face', 'Founder face', faceRef, brand.faceUrl],
+                    ['logo', 'Logo mark', logoRef, brand.logoUrl]].map(function (a) {
+                    const slot = a[0], label = a[1], ref = a[2], url = a[3];
+                    return (
+                      <div className={'asset-wrap' + (busy === slot ? ' is-busy' : '')} key={slot}>
+                        <button className="asset" type="button" disabled={Boolean(busy)}
+                          onClick={function () { ref.current && ref.current.click(); }}>
+                          {url ? <img src={url} alt="" /> : <span className="ph">＋</span>}
+                          <b>{label}</b>
+                          <span>{busy === slot ? 'Saving…' : url ? 'Replace' : 'Upload'}</span>
+                        </button>
+                        {url && busy !== slot ? (
+                          <button className="asset-x" type="button" aria-label={'Remove ' + label}
+                            onClick={function () { clearAsset(slot); }}>✕</button>
+                        ) : null}
+                      </div>
+                    );
+                  })}
                 </div>
-                <input ref={faceRef} type="file" accept="image/*" style={{ display: 'none' }}
-                  onChange={function (e) { uploadAsset(e.target.files && e.target.files[0], 'face'); }} />
-                <input ref={logoRef} type="file" accept="image/*" style={{ display: 'none' }}
-                  onChange={function (e) { uploadAsset(e.target.files && e.target.files[0], 'logo'); }} />
+                <input ref={faceRef} type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml,image/*"
+                  style={{ display: 'none' }}
+                  onChange={function (e) {
+                    const f = e.target.files && e.target.files[0];
+                    e.target.value = '';            /* so the same file can be picked again */
+                    uploadAsset(f, 'face');
+                  }} />
+                <input ref={logoRef} type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml,image/*"
+                  style={{ display: 'none' }}
+                  onChange={function (e) {
+                    const f = e.target.files && e.target.files[0];
+                    e.target.value = '';
+                    uploadAsset(f, 'logo');
+                  }} />
               </section>
 
               <section className="card2">
@@ -263,21 +365,31 @@ export default function Settings({ open, onClose, brand, onBrandChange, onSaveBr
                     return (
                       <span className="ref" key={i}>
                         <img src={u} alt="" />
-                        <button onClick={function () {
-                          set('references', (brand.references || []).filter(function (_, j) { return j !== i; }));
+                        <button type="button" onClick={function () {
+                          const next = Object.assign({}, brand, {
+                            references: (brand.references || []).filter(function (_, j) { return j !== i; })
+                          });
+                          onBrandChange(next);
+                          Promise.resolve(onSaveBrand(next)).catch(function () { });
                         }} aria-label="Remove">✕</button>
                       </span>
                     );
                   })}
                   {(brand.references || []).length < 4 ? (
-                    <button className="ref add" onClick={function () { refRef.current && refRef.current.click(); }}>
+                    <button className="ref add" type="button" disabled={Boolean(busy)}
+                      onClick={function () { refRef.current && refRef.current.click(); }}>
                       {busy === 'reference' ? '…' : '＋'}
-                      <span>Add reference</span>
+                      <span>{busy === 'reference' ? 'Saving' : 'Add reference'}</span>
                     </button>
                   ) : null}
                 </div>
-                <input ref={refRef} type="file" accept="image/*" style={{ display: 'none' }}
-                  onChange={function (e) { uploadAsset(e.target.files && e.target.files[0], 'reference'); }} />
+                <input ref={refRef} type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml,image/*"
+                  style={{ display: 'none' }}
+                  onChange={function (e) {
+                    const f = e.target.files && e.target.files[0];
+                    e.target.value = '';
+                    uploadAsset(f, 'reference');
+                  }} />
               </section>
 
               <section className="card2">
