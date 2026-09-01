@@ -19,6 +19,7 @@ export const EMPTY_BRAND = {
   faceUrl: '',
   logoUrl: '',
   references: [],
+  palette: [],
   imageQuality: 'high',
   colors: { accent: '', support: '', dark: '', light: '', neutral: '' }
 };
@@ -47,7 +48,8 @@ export async function GET(request) {
   const brand = await readJson(KEYS.brand, EMPTY_BRAND);
   const merged = Object.assign({}, EMPTY_BRAND, brand, {
     colors: Object.assign({}, EMPTY_BRAND.colors, brand.colors || {}),
-    references: Array.isArray(brand.references) ? brand.references : []
+    references: Array.isArray(brand.references) ? brand.references : [],
+    palette: Array.isArray(brand.palette) ? brand.palette : []
   });
   return Response.json({ brand: merged, readiness: readiness(merged) });
 }
@@ -59,7 +61,8 @@ export async function POST(request) {
     const incoming = body && body.brand ? body.brand : {};
     const merged = Object.assign({}, EMPTY_BRAND, incoming, {
       colors: Object.assign({}, EMPTY_BRAND.colors, incoming.colors || {}),
-      references: Array.isArray(incoming.references) ? incoming.references.slice(0, 4) : []
+      references: Array.isArray(incoming.references) ? incoming.references.slice(0, 4) : [],
+      palette: Array.isArray(incoming.palette) ? incoming.palette.slice(0, 14) : []
     });
     await writeJson(KEYS.brand, merged);
     return Response.json({ ok: true, brand: merged, readiness: readiness(merged) });
