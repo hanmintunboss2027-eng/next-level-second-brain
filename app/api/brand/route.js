@@ -6,6 +6,9 @@ export const dynamic = 'force-dynamic';
 
 export const EMPTY_BRAND = {
   name: '',
+  handle: '',
+  tagline: '',
+  website: '',
   language: 'Burmese',
   tone: '',
   useMore: '',
@@ -13,6 +16,10 @@ export const EMPTY_BRAND = {
   headingFont: '',
   bodyFont: '',
   feel: '',
+  faceUrl: '',
+  logoUrl: '',
+  references: [],
+  imageQuality: 'high',
   colors: { accent: '', support: '', dark: '', light: '', neutral: '' }
 };
 
@@ -21,13 +28,15 @@ export const EMPTY_BRAND = {
 function readiness(b) {
   const checks = [
     Boolean(b.name),
+    Boolean(b.tagline),
     Boolean(b.tone),
-    Boolean(b.language),
     Boolean(b.useMore),
     Boolean(b.neverUse),
     Boolean(b.headingFont || b.bodyFont),
     Boolean(b.colors && b.colors.accent),
-    Boolean(b.colors && (b.colors.support || b.colors.dark || b.colors.light))
+    Boolean(b.colors && (b.colors.support || b.colors.dark || b.colors.light)),
+    Boolean(b.faceUrl),
+    Boolean(b.logoUrl)
   ];
   const done = checks.filter(Boolean).length;
   return Math.round((done / checks.length) * 100);
@@ -37,7 +46,8 @@ export async function GET(request) {
   if (!checkAccess(request)) return denied();
   const brand = await readJson(KEYS.brand, EMPTY_BRAND);
   const merged = Object.assign({}, EMPTY_BRAND, brand, {
-    colors: Object.assign({}, EMPTY_BRAND.colors, brand.colors || {})
+    colors: Object.assign({}, EMPTY_BRAND.colors, brand.colors || {}),
+    references: Array.isArray(brand.references) ? brand.references : []
   });
   return Response.json({ brand: merged, readiness: readiness(merged) });
 }
@@ -48,7 +58,8 @@ export async function POST(request) {
     const body = await request.json();
     const incoming = body && body.brand ? body.brand : {};
     const merged = Object.assign({}, EMPTY_BRAND, incoming, {
-      colors: Object.assign({}, EMPTY_BRAND.colors, incoming.colors || {})
+      colors: Object.assign({}, EMPTY_BRAND.colors, incoming.colors || {}),
+      references: Array.isArray(incoming.references) ? incoming.references.slice(0, 4) : []
     });
     await writeJson(KEYS.brand, merged);
     return Response.json({ ok: true, brand: merged, readiness: readiness(merged) });
