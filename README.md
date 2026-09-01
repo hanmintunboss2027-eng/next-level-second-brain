@@ -1,33 +1,47 @@
 # AI Second Brain — Next Level by HMT
 
-Your own private AI that knows your business and writes in your voice.
-Upload the `Second-Brain` folder you built in Part 1, fill in your Brand Kit,
-and ask it for content from any device.
+သင့်စီးပွားရေးကို သိပြီး သင့်လေသံနဲ့ ရေးပေးတဲ့ ကိုယ်ပိုင် AI။
+Part 1 မှာ ဆောက်ခဲ့တဲ့ `Second-Brain` folder ကို တင်၊ Brand Kit ဖြည့်၊ ပြီးရင်
+ဖုန်းကဖြစ်စေ ကွန်ပျူတာကဖြစ်စေ အလုပ်ခိုင်းလို့ ရပါပြီ။
 
-No coding. Two accounts. About ten minutes.
+Code မရေးရပါ။ Account ၂ ခုပဲ လိုပါတယ်။ ၁၀ မိနစ်လောက် ကြာပါတယ်။
 
 ---
 
-## Deploy your own copy
+## ⚠️ မနှိပ်ခင် အရင်လုပ်ရမယ့် ၂ ခု
+
+Deploy ခလုတ်က **OpenAI key ကို ချက်ချင်း တောင်းပါတယ်**။ key မရှိဘဲ နှိပ်လိုက်ရင်
+အလယ်မှာ ရပ်သွားပါလိမ့်မယ်။ ဒါကြောင့် အောက်က ၂ ခုကို **အရင်** ပြီးအောင်လုပ်ပါ:
+
+1. **GitHub account** — [github.com/signup](https://github.com/signup)
+   အီးမေးလ် အတည်ပြုစာကို **နှိပ်ဖို့ မမေ့ပါနဲ့** (မနှိပ်ရင် repo မဆောက်ရပါဘူး)
+2. **OpenAI API key + ၅ ဒေါ်လာ credit** — [platform.openai.com/api-keys](https://platform.openai.com/api-keys)
+   key ဆောက်ပြီးရင် **Settings ▸ Billing** မှာ ကတ်ထည့်ပြီး ၅ ဒေါ်လာ ဖြည့်ပါ
+
+> **အများဆုံး မှားတဲ့ အချက်:** key ဆောက်ပေမဲ့ credit မဖြည့်တာ။
+> Site က ကောင်းကောင်း တက်လာပေမဲ့ စာရေးခိုင်းရင် တိတ်တိတ်ကလေး မအောင်မြင်ပါဘူး။
+
+---
+
+## Deploy — ကိုယ်ပိုင် တစ်ခု ဆောက်မယ်
 
 [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fhanmintunboss2027-eng%2Fnext-level-second-brain&project-name=second-brain&repository-name=second-brain&env=OPENAI_API_KEY&envDescription=Your%20OpenAI%20key%20-%20paste%20it%20on%20its%20own%2C%20no%20quotes&envLink=https%3A%2F%2Fplatform.openai.com%2Fapi-keys&stores=%5B%7B%22type%22%3A%22blob%22%7D%5D)
 
-The button does four things in order:
+ဒီခလုတ် တစ်ချက်တည်းက အဆင့် ၄ ဆင့် အလိုအလျောက် လုပ်ပေးပါတယ်:
 
-1. **Clones this repo into your GitHub** — keep the repository **Private**.
-2. **Attaches a Blob Store** — one click, no settings. This is where your uploaded
-   vault and brand kit live. *Do not skip it.*
-3. **Asks for `OPENAI_API_KEY`** — paste your key on its own. No quotes, no label,
-   no spaces before or after.
-4. **Builds and deploys** — about three minutes. Yellow `npm warn` lines are normal;
-   only a red error stops a deploy.
+| | ဘာလုပ်လဲ | သင်လုပ်ရမှာ |
+|---|---|---|
+| 1 | ဒီ repo ကို သင့် GitHub ထဲ ကူးယူတယ် | **Private** ထားပါ |
+| 2 | **Blob Store** တပ်ပေးတယ် | **Create** နှိပ်ရုံပါပဲ — *ဒါကို ကျော်မသွားပါနဲ့*၊ ဒီထဲမှာ သင့် vault နဲ့ brand kit တွေ သိမ်းမှာပါ |
+| 3 | `OPENAI_API_KEY` တောင်းတယ် | key ကို သီးသန့် paste လုပ်ပါ — quote မထည့်၊ space မထည့်၊ ရှေ့မှာ နာမည် မတပ်ပါနဲ့ |
+| 4 | ဆောက်ပြီး တင်ပေးတယ် | ၃ မိနစ်လောက် စောင့်ပါ။ အဝါရောင် `npm warn` စာကြောင်းတွေက ပုံမှန်ပါ၊ အနီရောင် error မှသာ ပြဿနာပါ |
 
-When it finishes, open the link under **Domains** (not the one under Deployment)
-and bookmark it. That is your brain's home on the web.
+ပြီးသွားရင် **Domains** အောက်က link ကို ဖွင့်ပြီး bookmark လုပ်ထားပါ
+(Deployment အောက်က link ကို မဟုတ်ပါဘူး)။ အဲ့ဒါ သင့် ဦးနှောက်ရဲ့ လိပ်စာပါ။
 
 ---
 
-## What you need first
+## What you need first / လိုအပ်တာများ
 
 | | What it is | Where |
 |---|---|---|
@@ -49,8 +63,10 @@ and bookmark it. That is your brain's home on the web.
 | `OPENAI_MODEL` | no | Defaults to `gpt-4o-mini`. Change it if your account has something else |
 | `SITE_PASSWORD` | no | Set it and the site asks for a code before it opens. Leave it out and anyone with the link can use it |
 
-Add or change any of these under **Project ▸ Settings ▸ Environment Variables**,
-then **Redeploy** — variables only take effect on a new deployment.
+Vercel မှာ ခုနောက်ပိုင်း **Environment Variables** က Settings menu ထဲ မဟုတ်တော့ဘဲ
+**ဘယ်ဘက် sidebar မှာ တိုက်ရိုက်** ရှိပါတယ် (Overview / Deployments / … / Environment
+Variables / Domains / … / **Storage**)။ ပြင်ပြီးတိုင်း **Redeploy** နှိပ်မှ အလုပ်လုပ်ပါတယ် —
+deployment အသစ် တစ်ခု မဖြစ်မချင်း variable အသစ်က မသက်ရောက်ပါဘူး။
 
 ---
 
