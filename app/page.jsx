@@ -4,6 +4,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Graph from '../components/Graph';
 import Settings from '../components/Settings';
 import OrgChart, { LEAVES, ROLES } from '../components/OrgChart';
+import Starfield from '../components/Starfield';
+import Mic from '../components/Mic';
+import Carousel from '../components/Carousel';
 
 const EXAMPLES = [
   'ကျွန်တော့် offer အကြောင်း Facebook post တစ်ခု မြန်မာလို ရေးပေးပါ',
@@ -40,11 +43,14 @@ export default function Page() {
   const [lit, setLit] = useState([]);
   const [step, setStep] = useState('');
   const [result, setResult] = useState(null);
+  const [thread, setThread] = useState([]);
   const [error, setError] = useState('');
   const [copied, setCopied] = useState(false);
   const [now, setNow] = useState('');
+  const [typed, setTyped] = useState(0);
 
   const timers = useRef([]);
+  const typer = useRef(null);
 
   const headers = useMemo(function () {
     return code ? { 'x-access-code': code } : {};
@@ -73,8 +79,29 @@ export default function Page() {
   }, []);
 
   useEffect(function () {
-    return function () { timers.current.forEach(clearTimeout); };
+    return function () {
+      timers.current.forEach(clearTimeout);
+      if (typer.current) clearInterval(typer.current);
+    };
   }, []);
+
+  /* type the deliverable out rather than dumping it — it reads as work
+     happening, and it is skippable for anyone who just wants the text */
+  useEffect(function () {
+    if (typer.current) clearInterval(typer.current);
+    if (!result || !result.content) { setTyped(0); return; }
+    const total = result.content.length;
+    setTyped(0);
+    const perTick = Math.max(2, Math.ceil(total / 260));
+    typer.current = setInterval(function () {
+      setTyped(function (n) {
+        const next = n + perTick;
+        if (next >= total) { clearInterval(typer.current); return total; }
+        return next;
+      });
+    }, 14);
+    return function () { if (typer.current) clearInterval(typer.current); };
+  }, [result]);
 
   const loadStatus = useCallback(async function (withCode) {
     try {
@@ -141,6 +168,11 @@ export default function Page() {
     setResult(null);
     setCopied(false);
 
+    const asked = instruction;
+    const history = thread.map(function (m) { return { role: m.role, content: m.content }; });
+    setThread(function (t) { return t.concat([{ role: 'user', content: asked }]); });
+    setInstruction('');
+
     STEPS.forEach(function (s) {
       timers.current.push(setTimeout(function () {
         setLit(s.lit);
@@ -157,7 +189,7 @@ export default function Page() {
       const res = await fetch('/api/generate', {
         method: 'POST',
         headers: Object.assign({ 'content-type': 'application/json' }, headers),
-        body: JSON.stringify({ instruction: instruction, format: format })
+        body: JSON.stringify({ instruction: asked, format: format, history: history })
       });
       const data = await res.json();
       if (!res.ok) {
@@ -165,6 +197,12 @@ export default function Page() {
         setLit([]);
       } else {
         setResult(data);
+        setThread(function (t) {
+          return t.concat([{
+            role: 'assistant', content: data.content,
+            format: data.format, used: data.used || []
+          }]);
+        });
         setLit(['ceo', 'cmo', 'research', 'content', 'leaf', 'leaf:' + leafKey]);
       }
     } catch (err) {
@@ -175,12 +213,19 @@ export default function Page() {
     setRunning(false);
   }
 
-  function copy() {
-    if (!result || !result.content) return;
-    navigator.clipboard.writeText(result.content).then(function () {
-      setCopied(true);
+  function copy(text, i) {
+    if (!text) return;
+    navigator.clipboard.writeText(text).then(function () {
+      setCopied(i);
       setTimeout(function () { setCopied(false); }, 1800);
     }, function () { /* clipboard blocked; text is on screen */ });
+  }
+
+  function newChat() {
+    setThread([]);
+    setResult(null);
+    setLit([]);
+    setError('');
   }
 
   /* ---------- access gate ---------- */
@@ -280,6 +325,7 @@ export default function Page() {
               }}
               placeholder="Tell the CEO what you need. It routes the rest."
             />
+            <Mic onText={setInstruction} disabled={running} />
             <button className="send" onClick={run} disabled={running || !instruction.trim()} title="Send">
               {running ? '•' : '↑'}
             </button>
@@ -322,6 +368,7 @@ export default function Page() {
               <span className="tag">Constellation</span>
             </div>
             <div className="constellation">
+              <Starfield />
               <Graph graph={vault && vault.graph} />
             </div>
             <div className="stats">
@@ -333,40 +380,68 @@ export default function Page() {
 
           <div className="panel">
             <div className="panel-h">
-              <h3>{result ? 'Deliverable' : running ? 'Running' : activeRole.name}</h3>
-              <span className="tag">{result ? (result.format || 'auto') : running ? 'live' : 'role'}</span>
+              <h3>{thread.length ? 'Conversation' : activeRole.name}</h3>
+              {thread.length ? (
+                <button className="newchat" onClick={newChat}>New</button>
+              ) : <span className="tag">Role</span>}
             </div>
             <div className="panel-b">
-              {running ? (
-                <div className="runlog">
-                  {STEPS.map(function (s) {
-                    const done = lit.length > s.lit.length;
-                    const cur = step === s.label;
-                    return (
-                      <div className={'runrow' + (cur ? ' on' : done ? ' did' : '')} key={s.label}>
-                        <i />{s.label}
-                      </div>
-                    );
-                  })}
-                  <div className={'runrow' + (step === 'Producing the deliverable' ? ' on' : '')}>
-                    <i />Producing the deliverable
-                  </div>
-                </div>
-              ) : result ? (
-                <>
-                  <div className="out">{result.content}</div>
-                  <div className="row" style={{ marginTop: 14 }}>
-                    <button className="btn" onClick={copy}>{copied ? 'Copied' : 'Copy'}</button>
-                    <button className="btn" onClick={run}>Run again</button>
-                  </div>
-                  {result.used && result.used.length ? (
-                    <div className="sources">Read from: {result.used.join(' · ')}</div>
-                  ) : null}
-                </>
-              ) : (
+              {!thread.length && !running ? (
                 <div className="roleinfo">
                   <b>{activeRole.name}</b>
                   <p>{activeRole.blurb}</p>
+                </div>
+              ) : (
+                <div className="threadwrap">
+                  {thread.map(function (m, i) {
+                    const last = i === thread.length - 1;
+                    if (m.role === 'user') {
+                      return <div className="msg user" key={i}>{m.content}</div>;
+                    }
+                    const shown = last ? m.content.slice(0, typed) : m.content;
+                    const typing = last && typed < m.content.length;
+                    return (
+                      <div className="msg bot" key={i}>
+                        <div className="out">
+                          {shown}
+                          {typing ? <span className="caret" /> : null}
+                        </div>
+                        {typing ? (
+                          <button className="skiptype" onClick={function () { setTyped(m.content.length); }}>
+                            Show it all
+                          </button>
+                        ) : null}
+                        {!typing && m.format === 'carousel' ? (
+                          <Carousel text={m.content} brand={brand} />
+                        ) : null}
+                        <div className="row" style={{ marginTop: 12 }}>
+                          <button className="btn" onClick={function () { copy(m.content, i); }}>
+                            {copied === i ? 'Copied' : 'Copy'}
+                          </button>
+                        </div>
+                        {m.used && m.used.length ? (
+                          <div className="sources">Read from: {m.used.join(' · ')}</div>
+                        ) : null}
+                      </div>
+                    );
+                  })}
+
+                  {running ? (
+                    <div className="runlog">
+                      {STEPS.map(function (st) {
+                        const done = lit.length > st.lit.length;
+                        const cur = step === st.label;
+                        return (
+                          <div className={'runrow' + (cur ? ' on' : done ? ' did' : '')} key={st.label}>
+                            <i />{st.label}
+                          </div>
+                        );
+                      })}
+                      <div className={'runrow' + (step === 'Producing the deliverable' ? ' on' : '')}>
+                        <i />Producing the deliverable
+                      </div>
+                    </div>
+                  ) : null}
                 </div>
               )}
             </div>
