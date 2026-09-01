@@ -167,9 +167,27 @@ button{font-family:inherit}
 .node.on .ico{border-color:var(--teal-dim);background:rgba(25,196,182,.12)}
 .node.sel{border-color:var(--blue);box-shadow:0 0 0 1px rgba(60,134,232,.3)}
 
-.node.leaf{flex-direction:column;gap:8px;padding:14px 10px;min-width:0;width:100%;align-items:center;text-align:center}
-.node.leaf .ico{width:32px;height:32px;border-radius:9px}
-.node.leaf b{font-size:12.5px;font-weight:600}
+.node.leaf{
+  flex-direction:column;gap:8px;padding:14px 10px;min-width:0;width:100%;
+  align-items:center;text-align:center;
+  background:#0F1A2E;border-color:#22344F;
+}
+.node.leaf .ico{width:32px;height:32px;border-radius:9px;background:#16233B;border-color:#2A3E5C}
+.node.leaf .ico svg{color:#B8CBE2}
+.node.leaf b{font-size:12.5px;font-weight:600;color:#DCE7F4}
+.node.leaf:hover{background:#152340;border-color:var(--blue)}
+.node.leaf.sel{
+  background:linear-gradient(180deg,rgba(25,196,182,.16),rgba(25,196,182,.05));
+  border-color:var(--teal);box-shadow:0 0 0 1px var(--teal-dim),0 0 20px rgba(25,196,182,.22);
+}
+.node.leaf.sel b{color:#fff}
+.node.leaf.sel .ico{background:rgba(25,196,182,.18);border-color:var(--teal-dim)}
+.node.leaf.sel .ico svg{color:var(--teal)}
+.node.leaf.sel::after{
+  content:"CHOSEN";position:absolute;top:-9px;left:50%;transform:translateX(-50%);
+  font-family:var(--font-mono);font-size:8px;letter-spacing:.16em;color:#04121A;
+  background:var(--teal);padding:2px 6px;border-radius:99px;white-space:nowrap;
+}
 
 @media (max-width:720px){
   .split::before{left:25%;right:25%}
@@ -232,20 +250,8 @@ button{font-family:inherit}
 
 .constellation{
   position:relative;
-  background-color:#070D18;
-  background-image:
-    radial-gradient(ellipse at 62% 38%,rgba(20,45,86,.55),transparent 68%),
-    radial-gradient(1.6px 1.6px at 12% 22%,rgba(155,140,240,.75),transparent),
-    radial-gradient(1.4px 1.4px at 78% 14%,rgba(60,134,232,.7),transparent),
-    radial-gradient(1.2px 1.2px at 34% 68%,rgba(25,196,182,.6),transparent),
-    radial-gradient(1.5px 1.5px at 88% 62%,rgba(155,140,240,.6),transparent),
-    radial-gradient(1.1px 1.1px at 55% 88%,rgba(143,165,191,.55),transparent),
-    radial-gradient(1.3px 1.3px at 22% 54%,rgba(60,134,232,.5),transparent),
-    radial-gradient(1.2px 1.2px at 68% 44%,rgba(155,140,240,.5),transparent),
-    radial-gradient(1.1px 1.1px at 44% 18%,rgba(143,165,191,.45),transparent),
-    radial-gradient(1.4px 1.4px at 92% 30%,rgba(25,196,182,.45),transparent),
-    radial-gradient(1.1px 1.1px at 8% 78%,rgba(143,165,191,.4),transparent);
-  min-height:210px;
+  background:#0A0F1A;
+  min-height:340px;
 }
 .constellation svg{display:block;width:100%;height:auto}
 .emptysky{padding:64px 22px;text-align:center;color:var(--ink-3);font-size:13.5px}
@@ -260,9 +266,12 @@ button{font-family:inherit}
 .roleinfo p{color:var(--ink-2);font-size:13.8px;line-height:1.7}
 
 .out{
-  white-space:pre-wrap;font-size:14px;line-height:1.85;color:var(--ink);
-  max-height:460px;overflow-y:auto;
+  white-space:pre-wrap;font-size:15px;line-height:1.9;color:var(--ink);
+  max-height:none;
 }
+.panel.output{margin-top:18px}
+.panel.output .panel-b{padding:22px 24px}
+.panel.output .msg.bot{border-left-width:3px;padding-left:18px}
 .sources{
   margin-top:12px;padding-top:12px;border-top:1px solid var(--line-soft);
   font-family:var(--font-mono);font-size:10.5px;color:var(--ink-3);word-break:break-all;line-height:1.7;
@@ -345,7 +354,7 @@ input::placeholder,textarea::placeholder{color:var(--ink-3)}
 /* ============ starfield + live constellation ============ */
 .sky{position:absolute;inset:0;pointer-events:auto;z-index:0}
 .sky canvas{display:block;width:100%;height:100%}
-.constellation{position:relative;isolation:isolate}
+.constellation{position:relative;isolation:isolate;overflow:hidden}
 .constellation svg{position:relative;z-index:1}
 .constellation .emptysky{position:relative;z-index:1}
 
@@ -604,3 +613,11 @@ input::placeholder,textarea::placeholder{color:var(--ink-3)}
 
 .drawer-foot{position:sticky;bottom:-40px;padding:14px 0 0;background:linear-gradient(180deg,transparent,var(--bg) 40%)}
 .drawer-foot .btn{width:100%;justify-content:center;padding:12px}
+
+.cmdhint .clearfmt{
+  margin-left:8px;border:1px solid var(--line);background:transparent;color:var(--ink-3);
+  font-family:var(--font-mono);font-size:9px;letter-spacing:.12em;text-transform:uppercase;
+  padding:2px 6px;border-radius:99px;cursor:pointer;
+}
+.cmdhint .clearfmt:hover{border-color:var(--rose);color:var(--rose)}
+.cmdhint .tip{font-style:normal;margin-left:8px;color:var(--ink-3);opacity:.75;text-transform:none;letter-spacing:0}

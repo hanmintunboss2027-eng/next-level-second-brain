@@ -4,7 +4,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Graph from '../components/Graph';
 import Settings from '../components/Settings';
 import OrgChart, { LEAVES, ROLES } from '../components/OrgChart';
-import Starfield from '../components/Starfield';
 import Mic from '../components/Mic';
 import Carousel from '../components/Carousel';
 
@@ -182,9 +181,9 @@ export default function Page() {
         setStep(s.label);
       }, s.at));
     });
-    const leafKey = format || 'post';
     timers.current.push(setTimeout(function () {
-      setLit(['ceo', 'cmo', 'research', 'content', 'leaf', 'leaf:' + leafKey]);
+      const base = ['ceo', 'cmo', 'research', 'content', 'leaf'];
+      setLit(format ? base.concat(['leaf:' + format]) : base);
       setStep('Producing the deliverable');
     }, 2500));
 
@@ -200,6 +199,9 @@ export default function Page() {
         setLit([]);
       } else {
         setResult(data);
+        if (data.format) {
+          setLit(['ceo', 'cmo', 'research', 'content', 'leaf', 'leaf:' + data.format]);
+        }
         setThread(function (t) {
           return t.concat([{
             role: 'assistant', content: data.content,
@@ -336,7 +338,12 @@ export default function Page() {
           </div>
 
           <div className="cmdhint">
-            <span>FORMAT <b>{formatLabel}</b></span>
+            <span>
+              FORMAT <b>{formatLabel}</b>
+              {format
+                ? <button className="clearfmt" type="button" onClick={function () { setFormat(''); }}>clear</button>
+                : <i className="tip">click a card to force one</i>}
+            </span>
             <span>BRAIN <b>{notesCount} notes</b></span>
             <span>MODEL <b>{(status && status.model) || '—'}</b></span>
             <span>ENTER to send · SHIFT+ENTER for a new line</span>
@@ -351,6 +358,76 @@ export default function Page() {
           ) : null}
 
           {error ? <div className="note bad"><b>Did not work</b><p>{error}</p></div> : null}
+
+
+        <div className="panel output">
+          <div className="panel-h">
+            <h3>{thread.length ? 'Conversation' : activeRole.name}</h3>
+            {thread.length ? (
+              <button className="newchat" onClick={newChat}>New</button>
+            ) : <span className="tag">Role</span>}
+          </div>
+          <div className="panel-b">
+            {!thread.length && !running ? (
+              <div className="roleinfo">
+                <b>{activeRole.name}</b>
+                <p>{activeRole.blurb}</p>
+              </div>
+            ) : (
+              <div className="threadwrap">
+                {thread.map(function (m, i) {
+                  const last = i === thread.length - 1;
+                  if (m.role === 'user') {
+                    return <div className="msg user" key={i}>{m.content}</div>;
+                  }
+                  const shown = last ? m.content.slice(0, typed) : m.content;
+                  const typing = last && typed < m.content.length;
+                  return (
+                    <div className="msg bot" key={i}>
+                      <div className="out">
+                        {shown}
+                        {typing ? <span className="caret" /> : null}
+                      </div>
+                      {typing ? (
+                        <button className="skiptype" onClick={function () { setTyped(m.content.length); }}>
+                          Show it all
+                        </button>
+                      ) : null}
+                      {!typing && m.format === 'carousel' ? (
+                        <Carousel text={m.content} brand={brand} />
+                      ) : null}
+                      <div className="row" style={{ marginTop: 12 }}>
+                        <button className="btn" onClick={function () { copy(m.content, i); }}>
+                          {copied === i ? 'Copied' : 'Copy'}
+                        </button>
+                      </div>
+                      {m.used && m.used.length ? (
+                        <div className="sources">Read from: {m.used.join(' · ')}</div>
+                      ) : null}
+                    </div>
+                  );
+                })}
+
+                {running ? (
+                  <div className="runlog">
+                    {STEPS.map(function (st) {
+                      const done = lit.length > st.lit.length;
+                      const cur = step === st.label;
+                      return (
+                        <div className={'runrow' + (cur ? ' on' : done ? ' did' : '')} key={st.label}>
+                          <i />{st.label}
+                        </div>
+                      );
+                    })}
+                    <div className={'runrow' + (step === 'Producing the deliverable' ? ' on' : '')}>
+                      <i />Producing the deliverable
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            )}
+          </div>
+        </div>
 
           <div className="examples">
             {EXAMPLES.map(function (x, i) {
@@ -372,82 +449,12 @@ export default function Page() {
               <span className="tag">Constellation</span>
             </div>
             <div className="constellation">
-              <Starfield />
               <Graph graph={vault && vault.graph} />
             </div>
             <div className="stats">
               <div className="stat"><b>{notesCount}</b><span>notes</span></div>
               <div className="stat"><b>{linkCount}</b><span>links</span></div>
               <div className="stat"><b>{readiness}%</b><span>brand</span></div>
-            </div>
-          </div>
-
-          <div className="panel">
-            <div className="panel-h">
-              <h3>{thread.length ? 'Conversation' : activeRole.name}</h3>
-              {thread.length ? (
-                <button className="newchat" onClick={newChat}>New</button>
-              ) : <span className="tag">Role</span>}
-            </div>
-            <div className="panel-b">
-              {!thread.length && !running ? (
-                <div className="roleinfo">
-                  <b>{activeRole.name}</b>
-                  <p>{activeRole.blurb}</p>
-                </div>
-              ) : (
-                <div className="threadwrap">
-                  {thread.map(function (m, i) {
-                    const last = i === thread.length - 1;
-                    if (m.role === 'user') {
-                      return <div className="msg user" key={i}>{m.content}</div>;
-                    }
-                    const shown = last ? m.content.slice(0, typed) : m.content;
-                    const typing = last && typed < m.content.length;
-                    return (
-                      <div className="msg bot" key={i}>
-                        <div className="out">
-                          {shown}
-                          {typing ? <span className="caret" /> : null}
-                        </div>
-                        {typing ? (
-                          <button className="skiptype" onClick={function () { setTyped(m.content.length); }}>
-                            Show it all
-                          </button>
-                        ) : null}
-                        {!typing && m.format === 'carousel' ? (
-                          <Carousel text={m.content} brand={brand} />
-                        ) : null}
-                        <div className="row" style={{ marginTop: 12 }}>
-                          <button className="btn" onClick={function () { copy(m.content, i); }}>
-                            {copied === i ? 'Copied' : 'Copy'}
-                          </button>
-                        </div>
-                        {m.used && m.used.length ? (
-                          <div className="sources">Read from: {m.used.join(' · ')}</div>
-                        ) : null}
-                      </div>
-                    );
-                  })}
-
-                  {running ? (
-                    <div className="runlog">
-                      {STEPS.map(function (st) {
-                        const done = lit.length > st.lit.length;
-                        const cur = step === st.label;
-                        return (
-                          <div className={'runrow' + (cur ? ' on' : done ? ' did' : '')} key={st.label}>
-                            <i />{st.label}
-                          </div>
-                        );
-                      })}
-                      <div className={'runrow' + (step === 'Producing the deliverable' ? ' on' : '')}>
-                        <i />Producing the deliverable
-                      </div>
-                    </div>
-                  ) : null}
-                </div>
-              )}
             </div>
           </div>
 
