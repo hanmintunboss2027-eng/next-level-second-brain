@@ -3,14 +3,14 @@
 import { useMemo } from 'react';
 
 const COLORS = {
-  core: '#14B3AB',
-  brand: '#A896EF',
-  raw: '#6B8CE0',
+  core: '#19C4B6',
+  brand: '#9B8CF0',
+  raw: '#3C86E8',
   wiki: '#7E93A8',
-  inbox: '#DFA75A'
+  inbox: '#E0A458'
 };
 
-const W = 640;
+const W = 520;
 const H = 380;
 
 /* A small spring layout. No d3 — a hundred iterations of repulsion plus
@@ -97,18 +97,16 @@ export default function Graph({ graph }) {
 
   if (!pts.length) {
     return (
-      <div className="graphwrap">
-        <div style={{ padding: '48px 20px', textAlign: 'center', color: '#6C8098', fontSize: 13.5 }}>
-          Upload your vault and the map of your business appears here.
-        </div>
+      <div className="emptysky">
+        Upload your vault and the map of your business appears here.
       </div>
     );
   }
 
   return (
-    <div className="graphwrap">
+    <>
       <svg viewBox={'0 0 ' + W + ' ' + H} role="img" aria-label="Your knowledge graph">
-        <g stroke="#243449" strokeWidth="1">
+        <g stroke="#1B2C46" strokeWidth="1">
           {links.map(function (l, i) {
             const a = index.get(l.source);
             const b = index.get(l.target);
@@ -131,7 +129,7 @@ export default function Graph({ graph }) {
                     textAnchor="middle"
                     fontFamily="'JetBrains Mono',monospace"
                     fontSize="9.5"
-                    fill="#9FB2C7"
+                    fill="#8FA5BF"
                   >
                     {p.label.length > 18 ? p.label.slice(0, 17) + '…' : p.label}
                   </text>
@@ -141,13 +139,6 @@ export default function Graph({ graph }) {
           })}
         </g>
       </svg>
-      <div className="legend">
-        <span><i style={{ background: COLORS.core }} />Index &amp; rules</span>
-        <span><i style={{ background: COLORS.brand }} />Brand</span>
-        <span><i style={{ background: COLORS.raw }} />Raw sources</span>
-        <span><i style={{ background: COLORS.wiki }} />Wiki</span>
-        <span><i style={{ background: COLORS.inbox }} />Inbox</span>
-      </div>
-    </div>
+    </>
   );
 }
