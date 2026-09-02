@@ -1,5 +1,6 @@
 import { put } from '@vercel/blob';
 import { checkAccess, denied } from '../../../lib/auth';
+import { storageModeChecked } from '../../../lib/store';
 
 export const runtime = 'nodejs';
 export const maxDuration = 30;
@@ -12,11 +13,11 @@ const OK = /^image\/(png|jpe?g|webp|svg\+xml)$/i;
 export async function POST(request) {
   if (!checkAccess(request)) return denied();
 
-  if (!process.env.BLOB_READ_WRITE_TOKEN) {
+  if ((await storageModeChecked()) !== 'blob') {
     return Response.json({
       error:
         'No storage attached, so images cannot be saved. Open your project on ' +
-        'Vercel ▸ Storage ▸ Add next to Blob Store, then Redeploy.'
+        'Vercel, click Storage in the left sidebar, add a Blob store, then Redeploy.'
     }, { status: 400 });
   }
 
