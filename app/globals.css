@@ -1,11 +1,11 @@
 :root{
-  --bg:#050A12;
-  --bg-grid:rgba(31,58,90,.20);
-  --panel:#0A1220;
-  --panel-2:#0E1930;
-  --panel-3:#132139;
-  --line:#1B2C46;
-  --line-soft:#132038;
+  --bg:#07070E;
+  --bg-grid:rgba(40,52,78,.16);
+  --panel:#0B0C14;
+  --panel-2:#101220;
+  --panel-3:#161A2C;
+  --line:#20263A;
+  --line-soft:#181D2E;
 
   --ink:#DCE7F4;
   --ink-2:#8FA5BF;
@@ -92,12 +92,11 @@ button{font-family:inherit}
 
 /* ============ org chart ============ */
 .stage{
-  background:linear-gradient(180deg,rgba(14,25,48,.55),rgba(10,18,32,.35));
-  border:1px solid var(--line);border-radius:16px;padding:26px 22px 22px;position:relative;overflow:hidden;
+  background:transparent;border:0;border-radius:0;padding:26px 4px 22px;position:relative;overflow:visible;
 }
 .stage::before{
-  content:"";position:absolute;left:50%;top:-30%;width:70%;height:70%;transform:translateX(-50%);
-  background:radial-gradient(closest-side,rgba(25,196,182,.10),transparent 70%);pointer-events:none;
+  content:"";position:absolute;left:50%;top:-24%;width:62%;height:62%;transform:translateX(-50%);
+  background:radial-gradient(closest-side,rgba(25,196,182,.07),transparent 70%);pointer-events:none;
 }
 .org{position:relative;display:flex;flex-direction:column;align-items:center}
 .tier{display:flex;justify-content:center;width:100%;position:relative}
@@ -143,6 +142,11 @@ button{font-family:inherit}
   position:relative;z-index:1;min-width:0;text-align:left;
 }
 .node:hover{border-color:var(--blue-dim);background:var(--panel-3)}
+.node .led{
+  position:absolute;top:8px;right:9px;width:4px;height:4px;border-radius:50%;
+  background:#31384F;transition:background .25s,box-shadow .25s;
+  padding:0;border:0;display:block;
+}
 .node .ico{
   width:36px;height:36px;border-radius:10px;background:var(--panel-3);border:1px solid var(--line);
   display:flex;align-items:center;justify-content:center;flex:none;
@@ -164,6 +168,7 @@ button{font-family:inherit}
   box-shadow:0 0 0 1px rgba(25,196,182,.35),0 0 30px -6px var(--teal-glow);
   background:linear-gradient(140deg,rgba(14,70,86,.55),rgba(12,26,44,.95));
 }
+.node.on .led{background:var(--teal);box-shadow:0 0 6px var(--teal-glow)}
 .node.on .ico{border-color:var(--teal-dim);background:rgba(25,196,182,.12)}
 .node.sel{border-color:var(--blue);box-shadow:0 0 0 1px rgba(60,134,232,.3)}
 
@@ -181,6 +186,7 @@ button{font-family:inherit}
   border-color:var(--teal);box-shadow:0 0 0 1px var(--teal-dim),0 0 20px rgba(25,196,182,.22);
 }
 .node.leaf.sel b{color:#fff}
+.node.leaf.sel .led{background:var(--teal);box-shadow:0 0 6px var(--teal-glow)}
 .node.leaf.sel .ico{background:rgba(25,196,182,.18);border-color:var(--teal-dim)}
 .node.leaf.sel .ico svg{color:var(--teal)}
 .node.leaf.sel::after{
@@ -250,11 +256,22 @@ button{font-family:inherit}
 
 .constellation{
   position:relative;
-  background:#0A0F1A;
-  min-height:340px;
+  background:#08090F;
+  min-height:min(62vh,560px);
 }
-.constellation svg{display:block;width:100%;height:auto}
-.emptysky{padding:64px 22px;text-align:center;color:var(--ink-3);font-size:13.5px}
+.constellation svg{display:block;width:100%;height:100%;position:absolute;inset:0}
+.emptysky{
+  position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  padding:24px;text-align:center;color:var(--ink-3);font-size:13.5px;
+}
+/* the role blurb lives at the foot of the map, as in the reference */
+.mapfoot{
+  position:absolute;left:0;right:0;bottom:0;padding:18px 22px 20px;text-align:center;
+  background:linear-gradient(180deg,transparent,rgba(8,9,15,.92) 45%);pointer-events:none;
+}
+.mapfoot b{display:block;font-family:var(--font-display);font-size:15px;margin-bottom:5px}
+.mapfoot p{color:var(--ink-2);font-size:12.5px;line-height:1.65;max-width:340px;margin:0 auto}
+.stats.thin{border-top:1px solid var(--line)}
 
 .stats{display:grid;grid-template-columns:repeat(3,1fr);border-top:1px solid var(--line)}
 .stat{padding:13px 16px;border-right:1px solid var(--line-soft)}

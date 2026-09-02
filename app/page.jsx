@@ -378,12 +378,13 @@ export default function Page() {
           {error ? <div className="note bad"><b>Did not work</b><p>{error}</p></div> : null}
 
 
+        {thread.length || running ? (
         <div className="panel output">
           <div className="panel-h">
-            <h3>{thread.length ? 'Conversation' : activeRole.name}</h3>
+            <h3>Conversation</h3>
             {thread.length ? (
               <button className="newchat" onClick={newChat}>New</button>
-            ) : <span className="tag">Role</span>}
+            ) : <span className="tag">Working</span>}
           </div>
           <div className="panel-b">
             {!thread.length && !running ? (
@@ -452,6 +453,7 @@ export default function Page() {
             )}
           </div>
         </div>
+        ) : null}
 
           <div className="examples">
             {EXAMPLES.map(function (x, i) {
@@ -474,29 +476,15 @@ export default function Page() {
             </div>
             <div className="constellation">
               <Graph graph={vault && vault.graph} />
+              <div className="mapfoot">
+                <b>{activeRole.name}</b>
+                <p>{activeRole.blurb}</p>
+              </div>
             </div>
-            <div className="stats">
+            <div className="stats thin">
               <div className="stat"><b>{notesCount}</b><span>notes</span></div>
               <div className="stat"><b>{linkCount}</b><span>links</span></div>
               <div className="stat"><b>{readiness}%</b><span>brand</span></div>
-            </div>
-          </div>
-
-          <div className="panel">
-            <div className="panel-h">
-              <h3>Brand kit</h3>
-              <span className="tag">{readiness}% ready</span>
-            </div>
-            <div className="panel-b">
-              <div className="meter"><span style={{ width: readiness + '%' }} /></div>
-              <p className="sub">
-                {readiness >= 88
-                  ? 'Filled in. Every post and image uses your colours and your tone.'
-                  : 'Fill this in once and nothing comes out generic again.'}
-              </p>
-              <button className="btn" style={{ marginTop: 14 }} onClick={function () { setOpen(true); }}>
-                Open Brand kit
-              </button>
             </div>
           </div>
 
