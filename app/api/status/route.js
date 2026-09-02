@@ -1,5 +1,5 @@
 import { gateEnabled, checkAccess } from '../../../lib/auth';
-import { storageMode } from '../../../lib/store';
+import { storageModeChecked } from '../../../lib/store';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -12,6 +12,6 @@ export async function GET(request) {
     unlocked: checkAccess(request),
     hasKey: Boolean((process.env.OPENAI_API_KEY || '').trim()),
     model: (process.env.OPENAI_MODEL || 'gpt-4o-mini').trim(),
-    storage: storageMode()
+    storage: await storageModeChecked()
   });
 }
