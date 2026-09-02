@@ -11,7 +11,7 @@ function titleOf(path, body) {
   const h1 = body.match(/^#\s+(.+)$/m);
   if (h1) return h1[1].trim();
   const base = path.split('/').pop() || path;
-  return base.replace(/\.md$/i, '');
+  return base.replace(/\.(md|markdown|txt|csv)$/i, '');
 }
 
 function linksOf(body) {
@@ -53,7 +53,7 @@ export async function POST(request) {
       zip.forEach(function (path, entry) {
         if (entry.dir) return;
         if (SKIP.test(path)) return;
-        if (!/\.(md|markdown|txt)$/i.test(path)) return;
+        if (!/\.(md|markdown|txt|csv)$/i.test(path)) return;
         entries.push({ path: path, entry: entry });
       });
 
@@ -69,19 +69,19 @@ export async function POST(request) {
           links: linksOf(body)
         });
       }
-    } else if (/\.(md|markdown|txt)$/i.test(name)) {
+    } else if (/\.(md|markdown|txt|csv)$/i.test(name)) {
       const body = buf.toString('utf8');
       notes.push({ path: name, title: titleOf(name, body), body: body, links: linksOf(body) });
     } else {
       return Response.json(
-        { error: 'Upload a vault .zip, or a single .md file.' },
+        { error: 'Upload a vault .zip, or a single .md, .txt or .csv file.' },
         { status: 400 }
       );
     }
 
     if (!notes.length) {
       return Response.json(
-        { error: 'No markdown found inside. Did you zip the whole Second-Brain folder?' },
+        { error: 'Nothing readable inside. The zip needs .md, .txt or .csv files — did you zip the whole Second-Brain folder?' },
         { status: 400 }
       );
     }
