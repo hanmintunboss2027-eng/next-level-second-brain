@@ -115,6 +115,7 @@ export default function OrgChart({ lit, format, onFormat, onRole, role }) {
           className={'node ceo' + on('ceo') + sel('ceo')}
           onClick={function () { onRole('ceo'); }}
         >
+          <i className="led" />
           <span className="ico">{I.ceo}</span>
           <span className="tt">
             <span className="kicker">AI CEO</span>
@@ -134,7 +135,8 @@ export default function OrgChart({ lit, format, onFormat, onRole, role }) {
             className={'node' + on('cmo') + sel('cmo')}
             onClick={function () { onRole('cmo'); }}
           >
-            <span className="ico">{I.cmo}</span>
+            <i className="led" />
+          <span className="ico">{I.cmo}</span>
             <span className="tt"><b>CMO</b><span className="sub">Marketing</span></span>
           </button>
         </div>
@@ -144,7 +146,8 @@ export default function OrgChart({ lit, format, onFormat, onRole, role }) {
             className={'node' + on('research') + sel('research')}
             onClick={function () { onRole('research'); }}
           >
-            <span className="ico">{I.research}</span>
+            <i className="led" />
+          <span className="ico">{I.research}</span>
             <span className="tt"><b>Research</b><span className="sub">Trends &amp; angles</span></span>
           </button>
         </div>
@@ -158,6 +161,7 @@ export default function OrgChart({ lit, format, onFormat, onRole, role }) {
           className={'node' + on('content') + sel('content')}
           onClick={function () { onRole('content'); }}
         >
+          <i className="led" />
           <span className="ico">{I.content}</span>
           <span className="tt"><b>Content</b><span className="sub">Posts in your voice</span></span>
         </button>
@@ -177,6 +181,7 @@ export default function OrgChart({ lit, format, onFormat, onRole, role }) {
                 onClick={function () { onFormat(format === l.key ? '' : l.key); }}
                 title={'Ask for a ' + l.label.toLowerCase()}
               >
+                <i className="led" />
                 <span className="ico">{I[l.icon]}</span>
                 <b>{l.label}</b>
               </button>
