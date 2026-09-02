@@ -208,9 +208,9 @@ export default function Page() {
             format: data.format, used: data.used || []
           }]);
         });
-        setLit(['ceo', 'cmo', 'research', 'content', 'leaf', 'leaf:' + leafKey]);
       }
     } catch (err) {
+      console.error('run failed', err);
       setError('Could not reach the server. Try again.');
       setLit([]);
     }
@@ -258,6 +258,13 @@ export default function Page() {
   }
 
   const notesCount = vault && !vault.empty ? vault.count : 0;
+
+  /* The model is told to end every reply with a "Sources:" line. When that
+     line is ALL that came back, the request was too vague to answer — say so
+     rather than showing a card with nothing in it. */
+  function bodyOf(text) {
+    return String(text || '').replace(/^\s*Sources:.*$/gim, '').trim();
+  }
   const linkCount = vault && vault.graph ? vault.graph.links.length : 0;
   const activeRole = ROLES[role] || ROLES.ceo;
   const formatLabel = format
@@ -355,6 +362,17 @@ export default function Page() {
               <p>Open <b>Settings ▸ Second brain</b> and upload your Part 1 folder as a zip. Until then it
               has nothing of yours to write from.</p>
             </div>
+          ) : notesCount < 4 ? (
+            <div className="note warn">
+              <b>Thin brain — {notesCount} note{notesCount === 1 ? '' : 's'}</b>
+              <p>
+                It will answer, but from almost nothing of yours, so everything will come out
+                generic. Zip your whole Part 1 <code>Second-Brain</code> folder — including
+                <code>Raw/voice-print.md</code>, <code>Raw/business-facts.md</code> and
+                the <code>Brand/</code> folder — and upload it again under
+                <b> Settings ▸ Second brain</b>.
+              </p>
+            </div>
           ) : null}
 
           {error ? <div className="note bad"><b>Did not work</b><p>{error}</p></div> : null}
@@ -380,8 +398,14 @@ export default function Page() {
                   if (m.role === 'user') {
                     return <div className="msg user" key={i}>{m.content}</div>;
                   }
-                  const shown = last ? m.content.slice(0, typed) : m.content;
-                  const typing = last && typed < m.content.length;
+                  const empty = !bodyOf(m.content);
+                  const body = empty
+                    ? 'That was too short for the CEO to act on. Say what it is about and who ' +
+                      'it is for — for example: "create a carousel about why most Facebook ads ' +
+                      'fail, for small shop owners".'
+                    : m.content;
+                  const shown = last && !empty ? body.slice(0, typed) : body;
+                  const typing = last && !empty && typed < body.length;
                   return (
                     <div className="msg bot" key={i}>
                       <div className="out">
