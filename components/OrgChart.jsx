@@ -102,14 +102,30 @@ export const ROLES = {
   }
 };
 
-export default function OrgChart({ lit, format, onFormat, onRole, role }) {
+/* Each department reports in its own colour, so a glance at the chart tells
+   you who did the work on this run without reading a word. */
+const TONE = { ceo: 'teal', cmo: 'violet', research: 'cyan', content: 'violet', leaf: 'magenta' };
+
+function Report({ tone, kicker, text, side }) {
+  if (!text) return null;
+  return (
+    <span className={'report ' + tone + ' ' + (side || 'below')}>
+      <b><i />{kicker}</b>
+      <span>{text}</span>
+    </span>
+  );
+}
+
+export default function OrgChart({ lit, format, onFormat, onRole, role, reports }) {
   const on = function (k) { return lit && lit.indexOf(k) >= 0 ? ' on' : ''; };
   const sel = function (k) { return role === k ? ' sel' : ''; };
+  const r = reports || {};
 
   return (
     <div className="org">
 
       <div className="tier">
+        <span className="nodewrap">
         <button
           type="button"
           className={'node ceo' + on('ceo') + sel('ceo')}
@@ -123,6 +139,8 @@ export default function OrgChart({ lit, format, onFormat, onRole, role }) {
             <span className="sub">Reads every document</span>
           </span>
         </button>
+        <Report tone={TONE.ceo} kicker={r.ceoKicker || 'Working'} text={r.ceo} side="right" />
+        </span>
       </div>
 
       <div className={'orgline' + (lit && lit.indexOf('cmo') >= 0 ? ' lit' : '')} />
@@ -130,41 +148,50 @@ export default function OrgChart({ lit, format, onFormat, onRole, role }) {
       <div className="tier split">
         <span className="peerlink" />
         <div className="branch">
+          <span className="nodewrap">
           <button
             type="button"
-            className={'node' + on('cmo') + sel('cmo')}
+            className={'node tone-violet' + on('cmo') + sel('cmo')}
             onClick={function () { onRole('cmo'); }}
           >
             <i className="led" />
           <span className="ico">{I.cmo}</span>
             <span className="tt"><b>CMO</b><span className="sub">Marketing</span></span>
           </button>
+          <Report tone={TONE.cmo} kicker={r.cmoKicker || '↑ Report'} text={r.cmo} side="below" />
+          </span>
         </div>
         <div className="branch">
+          <span className="nodewrap">
           <button
             type="button"
-            className={'node' + on('research') + sel('research')}
+            className={'node tone-cyan' + on('research') + sel('research')}
             onClick={function () { onRole('research'); }}
           >
             <i className="led" />
           <span className="ico">{I.research}</span>
             <span className="tt"><b>Research</b><span className="sub">Trends &amp; angles</span></span>
           </button>
+          <Report tone={TONE.research} kicker={r.researchKicker || '↑ Report'} text={r.research} side="below" />
+          </span>
         </div>
       </div>
 
       <div className={'gather' + (lit && lit.indexOf('content') >= 0 ? ' lit' : '')} />
 
       <div className="tier">
+        <span className="nodewrap">
         <button
           type="button"
-          className={'node' + on('content') + sel('content')}
+          className={'node tone-violet' + on('content') + sel('content')}
           onClick={function () { onRole('content'); }}
         >
           <i className="led" />
           <span className="ico">{I.content}</span>
           <span className="tt"><b>Content</b><span className="sub">Posts in your voice</span></span>
         </button>
+        <Report tone={TONE.content} kicker={r.contentKicker || '↑ Report'} text={r.content} side="right lower" />
+        </span>
       </div>
 
       <div className={'orgline' + (lit && lit.indexOf('leaf') >= 0 ? ' lit' : '')} />
@@ -185,6 +212,7 @@ export default function OrgChart({ lit, format, onFormat, onRole, role }) {
                 <span className="ico">{I[l.icon]}</span>
                 <b>{l.label}</b>
               </button>
+              {active ? <Report tone={TONE.leaf} kicker={r.leafKicker || l.label} text={r.leaf} /> : null}
             </div>
           );
         })}

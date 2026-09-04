@@ -73,7 +73,7 @@ function norm(v) {
 }
 
 export default function Settings({ open, onClose, brand, onBrandChange, onSaveBrand,
-  vault, onUploaded, headers, readiness, saving }) {
+  vault, onUploaded, headers, readiness, saving, storage }) {
   const [tab, setTab] = useState('vault');
   const [busy, setBusy] = useState('');
   const [msg, setMsg] = useState(null);
@@ -155,19 +155,12 @@ export default function Settings({ open, onClose, brand, onBrandChange, onSaveBr
       return;
     }
 
-    /* With a Blob store attached the image lives on a real URL forever.
-       Without one, the shrunk copy travels inside the brand itself, so the
-       kit still works today and only the permanence is missing. */
-    let url = small.dataUrl;
-    let stored = false;
-    try {
-      const fd = new FormData();
-      fd.append('file', new File([small.blob], small.name, { type: small.blob.type || file.type || 'image/png' }));
-      fd.append('slot', slot);
-      const res = await fetch('/api/assets', { method: 'POST', body: fd, headers: headers });
-      const data = await res.json().catch(function () { return {}; });
-      if (res.ok && data.url) { url = data.url; stored = true; }
-    } catch (err) { /* the inline copy below is the fallback */ }
+    /* The image travels inside the brand itself as a small data URL.
+       That is deliberate: a Blob store created today is PRIVATE, so a blob URL
+       will not render in an <img> tag at all, and a 640px shrink is only tens
+       of kilobytes — small enough to live in brand.json, which IS stored
+       durably. One less thing that can half-work. */
+    const url = small.dataUrl;
 
     /* Read the colours off the original file, not the stored URL — no CORS,
        no storage, no key, and it works on the very first upload. */
@@ -178,19 +171,12 @@ export default function Settings({ open, onClose, brand, onBrandChange, onSaveBr
     onBrandChange(next);
     try { await onSaveBrand(next); } catch (e) { /* the note still shows */ }
 
-    setMsg(stored
-      ? {
-        kind: 'ok',
-        text: swatches.length
-          ? 'Image saved, and ' + swatches.length + ' colours read from it. Scroll to the colour system to use them.'
-          : 'Image saved to your brand kit.'
-      }
-      : {
-        kind: 'warn',
-        text: 'Image added and saved with your brand — but no Blob store is attached, ' +
-          'so it will disappear when the site restarts. On Vercel, click Storage in the ' +
-          'left sidebar, add a Blob store, then Redeploy, and it stays for good.'
-      });
+    setMsg({
+      kind: 'ok',
+      text: swatches.length
+        ? 'Image saved, and ' + swatches.length + ' colours read from it. Scroll down to the colour system to use them.'
+        : 'Image saved to your brand kit.'
+    });
     setBusy('');
   }
 
@@ -304,7 +290,7 @@ export default function Settings({ open, onClose, brand, onBrandChange, onSaveBr
 
   const notes = vault && !vault.empty ? vault.count : 0;
   const links = vault && vault.graph ? vault.graph.links.length : 0;
-  const blobOn = vault && vault.storage === 'blob';
+  const blobOn = storage === 'blob';
 
   return (
     <div className="drawer-back" onClick={function (e) { if (e.target === e.currentTarget) onClose(); }}>
@@ -372,8 +358,8 @@ export default function Settings({ open, onClose, brand, onBrandChange, onSaveBr
                 {!blobOn ? (
                   <div className="note warn">
                     <b>No storage attached</b>
-                    <p>Anything you upload is lost on the next restart. Vercel ▸ <b>Storage</b> ▸
-                    <b> Add</b> next to Blob Store ▸ Redeploy.</p>
+                    <p>Anything you upload is lost on the next restart. On Vercel, click
+                    <b> Storage</b> in the left sidebar, add a Blob store, then Redeploy.</p>
                   </div>
                 ) : null}
                 {vault && vault.updatedAt ? (

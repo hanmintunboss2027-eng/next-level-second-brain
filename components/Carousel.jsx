@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from 'react';
    drawn on canvas in the brand's own colours and fonts, ready to download
    and post. Parsing is forgiving because models format lists in many ways. */
 
-const SIZE = 1080;
+export const SIZE = 1080;
 
 function pick(colors, key, fallback) {
   const v = colors && colors[key];
@@ -66,7 +66,7 @@ function wrap(ctx, text, maxWidth) {
   return out;
 }
 
-function drawSlide(canvas, slide, i, total, brand) {
+export function drawSlide(canvas, slide, i, total, brand) {
   const ctx = canvas.getContext('2d');
   const colors = brand.colors || {};
   const dark = pick(colors, 'dark', pick(colors, 'accent', '#0B2450'));
