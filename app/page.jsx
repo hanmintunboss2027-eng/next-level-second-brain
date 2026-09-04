@@ -218,7 +218,18 @@ export default function Page() {
            real reports a moment later */
         timers.current.forEach(clearTimeout);
         timers.current = [];
-        const d = data.deliverable || null;
+        /* A reply always has to land somewhere the person can see. If the
+           model skipped the structure, wrap whatever text came back so the
+           panel still opens rather than quietly falling back to the idle map. */
+        const d = data.deliverable || (data.content ? {
+          title: 'Deliverable', format: data.format || format || 'post',
+          team: [], route: '', reports: {}, grounded: [],
+          platform: 'Facebook', angle: 'Standard angle', subtitle: '',
+          body: data.content, words: 0, chars: (data.content || '').length,
+          cta: '', hooks: [], firstLine: '', caption: '',
+          slides: [], logline: '', seconds: 0, beats: [],
+          decision: { when: '', then: '', outcome: '' }, keyPoints: []
+        } : null);
         setResult(data);
         setDeliverable(d);
         setUsedNotes(data.used || []);
