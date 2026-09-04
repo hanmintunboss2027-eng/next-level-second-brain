@@ -74,10 +74,10 @@ button{font-family:inherit}
    below the fold. The org chart owns the left, the command bar is docked at
    its foot, and the right rail runs the full height and scrolls on its own. */
 .shell{
-  max-width:1600px;margin:0 auto;padding:16px 22px 18px;
+  max-width:1900px;margin:0 auto;padding:16px 26px 18px;
   flex:1;min-height:0;
   display:grid;
-  grid-template-columns:minmax(0,1fr) 1px minmax(320px,min(560px,40%));
+  grid-template-columns:minmax(0,1fr) 1px minmax(340px,min(620px,38%));
   grid-template-rows:minmax(0,1fr) auto;
   column-gap:22px;
   overflow:hidden;
@@ -884,7 +884,7 @@ input::placeholder,textarea::placeholder{color:var(--ink-3)}
 .grounded{padding-top:12px;border-top:1px solid var(--line-soft)}
 
 /* ---- carousel: real designed slides ---- */
-.stagecard{aspect-ratio:2/3;max-width:296px}
+.stagecard{aspect-ratio:2/3;max-width:340px}
 .stagecard .slideimg{width:100%;height:100%;object-fit:cover;display:block}
 .rendering{
   position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;
