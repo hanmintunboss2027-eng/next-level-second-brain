@@ -16,13 +16,6 @@ const EXAMPLES = [
 
 const CODE_KEY = 'nlsb.code';
 
-const STEPS = [
-  { at: 0, lit: ['ceo'], label: 'CEO reading your brain' },
-  { at: 700, lit: ['ceo', 'cmo'], label: 'CMO briefing the job' },
-  { at: 1300, lit: ['ceo', 'cmo', 'research'], label: 'Research pulling the angle' },
-  { at: 1900, lit: ['ceo', 'cmo', 'research', 'content'], label: 'Content writing in your voice' }
-];
-
 export default function Page() {
   const [status, setStatus] = useState(null);
   const [code, setCode] = useState('');
@@ -50,10 +43,8 @@ export default function Page() {
   const [error, setError] = useState('');
   const [copied, setCopied] = useState(false);
   const [now, setNow] = useState('');
-  const [typed, setTyped] = useState(0);
 
   const timers = useRef([]);
-  const typer = useRef(null);
 
   const headers = useMemo(function () {
     return code ? { 'x-access-code': code } : {};
@@ -82,29 +73,8 @@ export default function Page() {
   }, []);
 
   useEffect(function () {
-    return function () {
-      timers.current.forEach(clearTimeout);
-      if (typer.current) clearInterval(typer.current);
-    };
+    return function () { timers.current.forEach(clearTimeout); };
   }, []);
-
-  /* type the deliverable out rather than dumping it — it reads as work
-     happening, and it is skippable for anyone who just wants the text */
-  useEffect(function () {
-    if (typer.current) clearInterval(typer.current);
-    if (!result || !result.content) { setTyped(0); return; }
-    const total = result.content.length;
-    setTyped(0);
-    const perTick = Math.max(2, Math.ceil(total / 260));
-    typer.current = setInterval(function () {
-      setTyped(function (n) {
-        const next = n + perTick;
-        if (next >= total) { clearInterval(typer.current); return total; }
-        return next;
-      });
-    }, 14);
-    return function () { if (typer.current) clearInterval(typer.current); };
-  }, [result]);
 
   const loadStatus = useCallback(async function (withCode) {
     try {
@@ -347,12 +317,6 @@ export default function Page() {
 
   const notesCount = vault && !vault.empty ? vault.count : 0;
 
-  /* The model is told to end every reply with a "Sources:" line. When that
-     line is ALL that came back, the request was too vague to answer — say so
-     rather than showing a card with nothing in it. */
-  function bodyOf(text) {
-    return String(text || '').replace(/^\s*Sources:.*$/gim, '').trim();
-  }
   const linkCount = vault && vault.graph ? vault.graph.links.length : 0;
   const activeRole = ROLES[role] || ROLES.ceo;
   const formatLabel = format
@@ -483,11 +447,11 @@ export default function Page() {
 
         {/* ---- the command bar is docked at the bottom, as in a console ---- */}
         <div className="dock">
-          {/* the examples are scaffolding for the first run — once the chart is
-              working they get out of the way, and the departments report into
-              the space they leave behind */}
-          {running || deliverable ? null : (
-          <div className="examples">
+          {/* The examples are scaffolding for the first run. Once the chart is
+              working they step aside so the format desks can report into that
+              band — but the row keeps its height, because a console that
+              changes shape mid-run reads as a glitch. */}
+          <div className={'examples' + (running || deliverable ? ' spent' : '')}>
           {EXAMPLES.map(function (x, i) {
           return (
           <button className="ex" key={i} type="button" onClick={function () { setInstruction(x); }}>
@@ -496,7 +460,6 @@ export default function Page() {
           );
           })}
           </div>
-          )}
           <div className="cmd">
           <span className="caret">›</span>
           <textarea
