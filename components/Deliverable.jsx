@@ -48,8 +48,124 @@ const I = {
   chat: <Ico d={<path d="M20 12a7 7 0 0 1-9.9 6.4L4 20l1.6-5.2A7 7 0 1 1 20 12z" />} />,
   share: <Ico d={<><path d="M4 9h12l-3-3" /><path d="M20 15H8l3 3" /></>} />,
   send: <Ico d={<><path d="M21 4L3 11l7 3 3 7z" /><path d="M21 4l-11 10" /></>} />,
-  grid: <Ico d={<><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M3 10h18M9 10v10" /></>} />
+  grid: <Ico d={<><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M3 10h18M9 10v10" /></>} />,
+  expand: <Ico d={<><path d="M9 4H4v5" /><path d="M15 4h5v5" /><path d="M15 20h5v-5" /><path d="M9 20H4v-5" /></>} />,
+  close: <Ico d={<><path d="M6 6l12 12M18 6L6 18" /></>} w={16} />,
+  plus: <Ico d={<><path d="M12 6v12M6 12h12" /></>} w={16} />,
+  minus: <Ico d={<><path d="M6 12h12" /></>} w={16} />,
+  target: <Ico d={<><circle cx="12" cy="12" r="7" /><path d="M12 2v3M12 19v3M2 12h3M19 12h3" /></>} w={16} />
 };
+
+/* ------------------------------------------------------------- the zoom */
+
+/* Work you are about to publish has to be inspectable. This opens whatever is
+   on the panel at full size and lets you push in on it — wheel or the buttons
+   to zoom, drag to move around, Escape to come back. */
+function Lightbox({ src, title, children, onClose }) {
+  const [z, setZ] = useState(1);
+  const [p, setP] = useState({ x: 0, y: 0 });
+  const drag = useRef(null);
+
+  useEffect(function () {
+    function key(e) {
+      if (e.key === 'Escape') onClose();
+      if (e.key === '+' || e.key === '=') setZ(function (v) { return Math.min(6, v * 1.25); });
+      if (e.key === '-') setZ(function (v) { return Math.max(1, v / 1.25); });
+      if (e.key === '0') { setZ(1); setP({ x: 0, y: 0 }); }
+    }
+    window.addEventListener('keydown', key);
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return function () {
+      window.removeEventListener('keydown', key);
+      document.body.style.overflow = prev;
+    };
+  }, [onClose]);
+
+  function wheel(e) {
+    e.preventDefault();
+    setZ(function (v) { return Math.min(6, Math.max(1, v * (e.deltaY < 0 ? 1.12 : 0.89))); });
+  }
+  function down(e) {
+    if (z <= 1) return;
+    drag.current = { x: e.clientX - p.x, y: e.clientY - p.y };
+  }
+  function move(e) {
+    if (!drag.current) return;
+    setP({ x: e.clientX - drag.current.x, y: e.clientY - drag.current.y });
+  }
+  function up() { drag.current = null; }
+
+  return (
+    <div className="lightbox" onMouseMove={move} onMouseUp={up} onMouseLeave={up}>
+      <header>
+        <span className="lb-t">{title}</span>
+        <div className="lb-z">
+          <button type="button" title="Zoom out"
+            onClick={function () { setZ(function (v) { return Math.max(1, v / 1.25); }); }}>{I.minus}</button>
+          <b>{Math.round(z * 100)}%</b>
+          <button type="button" title="Zoom in"
+            onClick={function () { setZ(function (v) { return Math.min(6, v * 1.25); }); }}>{I.plus}</button>
+          <button type="button" title="Fit"
+            onClick={function () { setZ(1); setP({ x: 0, y: 0 }); }}>{I.target}</button>
+        </div>
+        <button type="button" className="lb-x" title="Close" onClick={onClose}>{I.close}</button>
+      </header>
+      <div className={'lb-stage' + (z > 1 ? ' grabbable' : '')}
+        onWheel={wheel} onMouseDown={down}
+        onClick={function (e) { if (e.target === e.currentTarget && z === 1) onClose(); }}>
+        <div className="lb-in"
+          style={{ transform: 'translate(' + p.x + 'px,' + p.y + 'px) scale(' + z + ')' }}>
+          {src ? <img src={src} alt={title || ''} /> : <div className="lb-doc">{children}</div>}
+        </div>
+      </div>
+      <footer>Scroll to zoom · drag to move · Esc to close</footer>
+    </div>
+  );
+}
+
+/* ---------------------------------------------- the marketing decision */
+
+function Briefing({ d }) {
+  const dec = d.decision || {};
+  const hasDec = dec.when || dec.then;
+  if (!hasDec && !(d.keyPoints && d.keyPoints.length)) return null;
+
+  return (
+    <>
+      {hasDec ? (
+        <section className="card2 decision">
+          <h4>Marketing decision</h4>
+          {dec.when ? (
+            <div className="dline">
+              <span className="dico when">{I.swap}</span>
+              <div><b>When</b><p>{dec.when}</p></div>
+            </div>
+          ) : null}
+          {dec.when && dec.then ? <span className="dflow">&darr;</span> : null}
+          {dec.then ? (
+            <div className="dline">
+              <span className="dico then">&rarr;</span>
+              <div><b>Then</b><p className="strong">{dec.then}</p></div>
+            </div>
+          ) : null}
+          {dec.outcome ? <p className="outcome">{dec.outcome}</p> : null}
+        </section>
+      ) : null}
+
+      {d.keyPoints && d.keyPoints.length ? (
+        <section className="card2 keypoints">
+          <h4>Key points</h4>
+          <ul>
+            {d.keyPoints.map(function (k, n) {
+              return <li key={n}><span className="tick"><Check /></span>{k}</li>;
+            })}
+          </ul>
+        </section>
+      ) : null}
+    </>
+  );
+}
 
 /* ------------------------------------------------------------- text post */
 
@@ -78,6 +194,8 @@ function TextPost({ d, brand, onCopy, copied }) {
 
   return (
     <>
+      <Briefing d={d} />
+
       <div className="dkind"><span className="ki">{I.text}</span>Text post</div>
 
       <div className="chips">
@@ -140,7 +258,7 @@ function TextPost({ d, brand, onCopy, copied }) {
 
 /* --------------------------------------------------------------- carousel */
 
-function CarouselDeck({ d, brand, onCopy, copied }) {
+function CarouselDeck({ d, brand, onCopy, copied, onCurrent }) {
   const [i, setI] = useState(0);
   const [imgs, setImgs] = useState([]);
   const [busy, setBusy] = useState(0);
@@ -158,6 +276,8 @@ function CarouselDeck({ d, brand, onCopy, copied }) {
      making that restart a seven-slide render would burn the person's credit. */
   const brandRef = useRef(brand);
   brandRef.current = brand;
+
+  useEffect(function () { if (onCurrent) onCurrent(img || ''); }, [img, onCurrent]);
 
   /* Draw every slide with the image model, two at a time — fast enough to
      watch, gentle enough not to trip the rate limit. A slide the model will
@@ -339,7 +459,6 @@ function ReelScript({ d, onCopy, copied }) {
   return (
     <>
       <div className="dkind"><span className="ki">{I.film}</span>Reel production script</div>
-      <h2 className="dtitle">{d.title}</h2>
       {d.logline ? <p className="dlog">{d.logline}</p> : null}
 
       <div className="chips wide">
@@ -408,8 +527,9 @@ function LongPiece({ d, onCopy, copied }) {
 
   return (
     <>
+      <Briefing d={d} />
+
       <div className="dkind"><span className="ki">{icon}</span>{label}</div>
-      <h2 className="dtitle">{d.title}</h2>
 
       <div className="chips wide">
         <span className="chip">{d.platform}</span>
@@ -453,6 +573,12 @@ function LongPiece({ d, onCopy, copied }) {
 /* ----------------------------------------------------------------- shell */
 
 export default function Deliverable({ d, brand, running, step, onCopy, copied }) {
+  const [slideSrc, setSlideSrc] = useState('');
+  const [zoom, setZoom] = useState(false);
+  const current = useCallback(function (src) { setSlideSrc(src); }, []);
+
+  useEffect(function () { setZoom(false); }, [d]);
+
   if (!d) return null;
 
   function download() {
@@ -469,18 +595,18 @@ export default function Deliverable({ d, brand, running, step, onCopy, copied })
       <header className="deliv-h">
         <span className="lab"><i />Deliverable</span>
         <div className="hbtns">
-          <button type="button" title="Copy" aria-label="Copy"
-            onClick={function () { onCopy(d.body, 'body'); }}>{I.copy}</button>
+          <button type="button" title="Open full size" aria-label="Open full size"
+            onClick={function () { setZoom(true); }}>{I.expand}</button>
           <button type="button" title="Download" aria-label="Download"
             onClick={download}>{I.down}</button>
         </div>
-        {d.format === 'reel' || d.format === 'longform' || d.format === 'newsletter'
-          ? null : <h3>{d.title}</h3>}
+        <h3>{d.title}</h3>
+        {d.subtitle ? <p className="deliv-sub">{d.subtitle}</p> : null}
       </header>
 
       <div className="deliv-b">
         {d.format === 'carousel'
-          ? <CarouselDeck d={d} brand={brand} onCopy={onCopy} copied={copied} />
+          ? <CarouselDeck d={d} brand={brand} onCopy={onCopy} copied={copied} onCurrent={current} />
           : d.format === 'reel'
             ? <ReelScript d={d} onCopy={onCopy} copied={copied} />
             : d.format === 'post'
@@ -501,6 +627,26 @@ export default function Deliverable({ d, brand, running, step, onCopy, copied })
         <span className="tick"><Check /></span>
         {running ? (step || 'Working…') : 'Run complete · deliverable ready'}
       </footer>
+
+      {zoom ? (
+        <Lightbox
+          title={d.title}
+          src={d.format === 'carousel' ? slideSrc : ''}
+          onClose={function () { setZoom(false); }}
+        >
+          <h2>{d.title}</h2>
+          {d.subtitle ? <p className="lead">{d.subtitle}</p> : null}
+          {(d.body || '').split(/\n{2,}/).map(function (para, n) {
+            return <p key={n}>{para.trim()}</p>;
+          })}
+          {d.caption ? (
+            <>
+              <h3>Post caption</h3>
+              <p>{d.caption}</p>
+            </>
+          ) : null}
+        </Lightbox>
+      ) : null}
     </div>
   );
 }

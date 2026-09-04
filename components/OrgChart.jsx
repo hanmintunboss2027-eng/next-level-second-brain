@@ -13,20 +13,20 @@ const I = {
     </svg>
   ),
   cmo: (
-    <svg viewBox="0 0 24 24" color="#3C86E8" aria-hidden="true">
+    <svg viewBox="0 0 24 24" color="#9B8CF0" aria-hidden="true">
       <path {...S} d="M4 10v4a1 1 0 0 0 1 1h2.6L14 19V5L7.6 9H5a1 1 0 0 0-1 1z" />
       <path {...S} d="M17.5 9.2a4 4 0 0 1 0 5.6M19.8 6.8a7.3 7.3 0 0 1 0 10.4" />
     </svg>
   ),
   research: (
-    <svg viewBox="0 0 24 24" color="#9B8CF0" aria-hidden="true">
+    <svg viewBox="0 0 24 24" color="#5FD3F3" aria-hidden="true">
       <circle {...S} cx="7" cy="14" r="3.4" />
       <circle {...S} cx="17" cy="14" r="3.4" />
       <path {...S} d="M10.4 14h3.2M7 10.6 8.8 5.6h2.4M17 10.6 15.2 5.6h-2.4" />
     </svg>
   ),
   content: (
-    <svg viewBox="0 0 24 24" color="#19C4B6" aria-hidden="true">
+    <svg viewBox="0 0 24 24" color="#9B8CF0" aria-hidden="true">
       <path {...S} d="M4.5 19.5 5.7 15 16 4.7a2.1 2.1 0 0 1 3 3L8.7 18l-4.2 1.5z" />
       <path {...S} d="M14.3 6.4 17.6 9.7" />
     </svg>
@@ -117,15 +117,21 @@ function Report({ tone, kicker, text, side }) {
 }
 
 export default function OrgChart({ lit, format, onFormat, onRole, role, reports }) {
-  const on = function (k) { return lit && lit.indexOf(k) >= 0 ? ' on' : ''; };
+  const has = function (k) { return Boolean(lit && lit.indexOf(k) >= 0); };
+  const on = function (k) { return has(k) ? ' on' : ''; };
   const sel = function (k) { return role === k ? ' sel' : ''; };
   const r = reports || {};
+
+  /* A rail is live when the work has actually reached it, and a live rail runs
+     a light down its length — that travelling light is the whole reason the
+     chart reads as a machine doing something rather than a diagram of one. */
+  const leafOn = Boolean(lit && lit.some(function (k) { return k.indexOf('leaf:') === 0; }));
 
   return (
     <div className="org">
 
       <div className="tier">
-        <span className="nodewrap">
+        <span className="nodewrap wrap-ceo">
         <button
           type="button"
           className={'node ceo' + on('ceo') + sel('ceo')}
@@ -143,11 +149,11 @@ export default function OrgChart({ lit, format, onFormat, onRole, role, reports 
         </span>
       </div>
 
-      <div className={'orgline' + (lit && lit.indexOf('cmo') >= 0 ? ' lit' : '')} />
+      <div className={'orgline' + (has('cmo') || has('research') ? ' lit' : '')} />
 
-      <div className="tier split">
-        <span className="peerlink" />
-        <div className="branch">
+      <div className={'tier split' + (has('cmo') || has('research') ? ' lit' : '')}>
+        <span className={'peerlink' + (has('cmo') && has('research') ? ' lit' : '')} />
+        <div className={'branch' + (has('cmo') ? ' lit' : '')}>
           <span className="nodewrap">
           <button
             type="button"
@@ -158,10 +164,10 @@ export default function OrgChart({ lit, format, onFormat, onRole, role, reports 
           <span className="ico">{I.cmo}</span>
             <span className="tt"><b>CMO</b><span className="sub">Marketing</span></span>
           </button>
-          <Report tone={TONE.cmo} kicker={r.cmoKicker || '↑ Report'} text={r.cmo} side="below" />
+          <Report tone={TONE.cmo} kicker={r.cmoKicker || '↑ Report'} text={r.cmo} side="below out-l" />
           </span>
         </div>
-        <div className="branch">
+        <div className={'branch' + (has('research') ? ' lit' : '')}>
           <span className="nodewrap">
           <button
             type="button"
@@ -172,12 +178,12 @@ export default function OrgChart({ lit, format, onFormat, onRole, role, reports 
           <span className="ico">{I.research}</span>
             <span className="tt"><b>Research</b><span className="sub">Trends &amp; angles</span></span>
           </button>
-          <Report tone={TONE.research} kicker={r.researchKicker || '↑ Report'} text={r.research} side="below" />
+          <Report tone={TONE.research} kicker={r.researchKicker || '↑ Report'} text={r.research} side="below out-r" />
           </span>
         </div>
       </div>
 
-      <div className={'gather' + (lit && lit.indexOf('content') >= 0 ? ' lit' : '')} />
+      <div className={'gather' + (has('content') ? ' lit' : '')} />
 
       <div className="tier">
         <span className="nodewrap">
@@ -190,18 +196,18 @@ export default function OrgChart({ lit, format, onFormat, onRole, role, reports 
           <span className="ico">{I.content}</span>
           <span className="tt"><b>Content</b><span className="sub">Posts in your voice</span></span>
         </button>
-        <Report tone={TONE.content} kicker={r.contentKicker || '↑ Report'} text={r.content} side="right lower" />
+        <Report tone={TONE.content} kicker={r.contentKicker || '↑ Report'} text={r.content} side="below deep" />
         </span>
       </div>
 
-      <div className={'orgline' + (lit && lit.indexOf('leaf') >= 0 ? ' lit' : '')} />
+      <div className={'orgline' + (has('leaf') ? ' lit' : '')} />
 
-      <div className="tier leaves">
+      <div className={'tier leaves' + (leafOn ? ' lit' : '')}>
         {LEAVES.map(function (l) {
           const active = (lit && lit.indexOf('leaf:' + l.key) >= 0) ? ' on' : '';
           const chosen = format === l.key ? ' sel' : '';
           return (
-            <div className="leaf-wrap" key={l.key}>
+            <div className={'leaf-wrap' + (active ? ' lit' : '')} key={l.key}>
               <button
                 type="button"
                 className={'node leaf' + active + chosen}
