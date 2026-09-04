@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { drawSlide, SIZE } from './Carousel';
 
 /* The finished job, handed over the way a studio hands work over — and
@@ -96,7 +97,11 @@ function Lightbox({ src, title, children, onClose }) {
   }
   function up() { drag.current = null; }
 
-  return (
+  /* Rendered into the document body, not into the panel: the deliverable card
+     clips its own overflow, and a full-screen layer must not be its prisoner. */
+  if (typeof document === 'undefined') return null;
+
+  return createPortal((
     <div className="lightbox" onMouseMove={move} onMouseUp={up} onMouseLeave={up}>
       <header>
         <span className="lb-t">{title}</span>
@@ -121,7 +126,7 @@ function Lightbox({ src, title, children, onClose }) {
       </div>
       <footer>Scroll to zoom · drag to move · Esc to close</footer>
     </div>
-  );
+  ), document.body);
 }
 
 /* ---------------------------------------------- the marketing decision */
