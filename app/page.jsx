@@ -5,7 +5,7 @@ import Graph from '../components/Graph';
 import Settings from '../components/Settings';
 import OrgChart, { LEAVES, ROLES } from '../components/OrgChart';
 import Mic from '../components/Mic';
-import Carousel from '../components/Carousel';
+import Deliverable from '../components/Deliverable';
 
 const EXAMPLES = [
   'ကျွန်တော့် offer အကြောင်း Facebook post တစ်ခု မြန်မာလို ရေးပေးပါ',
@@ -41,8 +41,12 @@ export default function Page() {
   const [running, setRunning] = useState(false);
   const [lit, setLit] = useState([]);
   const [step, setStep] = useState('');
+  const [stage, setStage] = useState(null);
   const [result, setResult] = useState(null);
   const [thread, setThread] = useState([]);
+  const [deliverable, setDeliverable] = useState(null);
+  const [usedNotes, setUsedNotes] = useState([]);
+  const [reports, setReports] = useState({});
   const [error, setError] = useState('');
   const [copied, setCopied] = useState(false);
   const [now, setNow] = useState('');
@@ -125,11 +129,20 @@ export default function Page() {
       ]);
       if (v && !v.error) setVault(v);
       if (b && b.brand) { setBrand(b.brand); setReadiness(b.readiness || 0); }
+      /* keep the storage badge honest after an upload or a save */
+      const st = await fetch('/api/status', { headers: headers, cache: 'no-store' })
+        .then(function (r) { return r.json(); }).catch(function () { return null; });
+      if (st) setStatus(st);
     } catch (err) { /* dashboard still renders */ }
   }, [headers]);
 
   useEffect(function () { loadStatus(code); }, [code, loadStatus]);
-  useEffect(function () { if (status && status.unlocked) loadAll(); }, [status, loadAll]);
+
+  /* Depend on the fact of being unlocked, not on the status object: loadAll
+     refreshes that object, and depending on it made the two chase each other
+     round the event loop, re-fetching for ever. */
+  const unlocked = !!(status && status.unlocked);
+  useEffect(function () { if (unlocked) loadAll(); }, [unlocked, loadAll]);
 
   async function unlock(e) {
     e.preventDefault();
@@ -168,6 +181,8 @@ export default function Page() {
     setRunning(true);
     setError('');
     setResult(null);
+    setDeliverable(null);
+    setReports({});
     setCopied(false);
 
     const asked = instruction;
@@ -175,17 +190,47 @@ export default function Page() {
     setThread(function (t) { return t.concat([{ role: 'user', content: asked }]); });
     setInstruction('');
 
-    STEPS.forEach(function (s) {
+    /* The chart narrates the run department by department: the job travels
+       CEO → Research → CMO → Content → the format desk, and each one says what
+       it is doing the moment it lights up. The same line shows over the
+       knowledge map on the right, so the wait reads as work, not as a spinner. */
+    const fmtKey = format || 'post';
+    const fmtLabel = (LEAVES.filter(function (l) { return l.key === fmtKey; })[0] || {}).label || 'Text';
+    const LEAFWORK = {
+      post: 'Matching your voice · brand kit and knowledge notes',
+      image: 'Writing the caption and the image brief',
+      carousel: 'Writing and art-directing the slides',
+      reel: 'Writing the script and the shot list',
+      longform: 'Drafting the long-form piece',
+      newsletter: 'Writing the subject line and the body'
+    };
+    const leafWork = LEAFWORK[fmtKey] || LEAFWORK.post;
+
+    const LIVE = [
+      { at: 0, lit: ['ceo'], tone: 'teal', label: 'CEO',
+        step: 'Reading your second brain and choosing the team',
+        rep: { ceoKicker: 'Route', ceo: 'Reading your second brain and choosing the team' } },
+      { at: 1100, lit: ['ceo', 'research'], tone: 'cyan', label: 'Research',
+        step: 'Reading your second brain for the angle',
+        rep: { researchKicker: 'Read', research: 'Reading your second brain for the angle' } },
+      { at: 2400, lit: ['ceo', 'research', 'cmo'], tone: 'violet', label: 'CMO',
+        step: 'Briefing the job and the audience',
+        rep: { cmoKicker: 'Working', cmo: 'Delegating to 1 content producer' } },
+      { at: 3600, lit: ['ceo', 'research', 'cmo', 'content'], tone: 'violet', label: 'Content',
+        step: 'Content is coordinating the deliverable',
+        rep: { contentKicker: 'Online', content: 'Content is coordinating the deliverable' } },
+      { at: 4800, lit: ['ceo', 'research', 'cmo', 'content', 'leaf', 'leaf:' + fmtKey],
+        tone: 'magenta', label: fmtLabel, step: leafWork,
+        rep: { leafKicker: fmtLabel, leaf: leafWork } }
+    ];
+    LIVE.forEach(function (s) {
       timers.current.push(setTimeout(function () {
         setLit(s.lit);
-        setStep(s.label);
+        setStep(s.step);
+        setStage({ tone: s.tone, label: s.label, text: s.step });
+        setReports(function (r) { return Object.assign({}, r, s.rep); });
       }, s.at));
     });
-    timers.current.push(setTimeout(function () {
-      const base = ['ceo', 'cmo', 'research', 'content', 'leaf'];
-      setLit(format ? base.concat(['leaf:' + format]) : base);
-      setStep('Producing the deliverable');
-    }, 2500));
 
     try {
       const res = await fetch('/api/generate', {
@@ -197,22 +242,62 @@ export default function Page() {
       if (!res.ok) {
         setError(data.error || 'Something went wrong.');
         setLit([]);
+        setStage(null);
       } else {
+        /* the run finished, so stop the scripted narration overwriting the
+           real reports a moment later */
+        timers.current.forEach(clearTimeout);
+        timers.current = [];
+        const d = data.deliverable || null;
         setResult(data);
-        if (data.format) {
-          setLit(['ceo', 'cmo', 'research', 'content', 'leaf', 'leaf:' + data.format]);
-        }
+        setDeliverable(d);
+        setUsedNotes(data.used || []);
+
+        /* Only the departments that actually worked stay lit, and each shows
+           what it handed over — the same way the run narrated itself. */
+        const team = (d && d.team && d.team.length) ? d.team : ['cmo', 'research', 'content'];
+        const key = (d && d.format) || format || 'post';
+        const label = (LEAVES.filter(function (l) { return l.key === key; })[0] || {}).label || 'Text';
+        setLit(['ceo'].concat(team).concat(['leaf', 'leaf:' + key]));
+        setStage(null);
+        setReports({
+          ceoKicker: 'Working',
+          ceo: (d && d.route) || "Done. The team's output is ready.",
+          cmoKicker: '↑ Report',
+          cmo: team.indexOf('cmo') >= 0 ? ((d && d.reports.cmo) || 'CMO → CEO: content package delivered') : '',
+          researchKicker: '↑ Report',
+          research: team.indexOf('research') >= 0 ? ((d && d.reports.research) || 'Research → CEO: research brief delivered') : '',
+          contentKicker: '↑ Report',
+          content: team.indexOf('content') >= 0 ? ((d && d.reports.content) || 'Content → CMO: all requested formats delivered') : '',
+          leafKicker: '↑ Report',
+          leaf: (d && d.reports.leaf) || (label + ' → Content: ' + label.toLowerCase() + ' delivered')
+        });
+
         setThread(function (t) {
           return t.concat([{
             role: 'assistant', content: data.content,
             format: data.format, used: data.used || []
           }]);
         });
+
+        /* The brain grows: every run is filed back into the vault, so the
+           knowledge map gains a node for the work you just did. */
+        if (d && d.title) {
+          fetch('/api/docs', {
+            method: 'POST',
+            headers: Object.assign({ 'content-type': 'application/json' }, headers),
+            body: JSON.stringify({
+              title: 'Session — ' + d.title,
+              body: [d.route, '', d.body, '', d.caption].filter(Boolean).join('\n')
+            })
+          }).then(function () { loadAll(); }).catch(function () { });
+        }
       }
     } catch (err) {
       console.error('run failed', err);
       setError('Could not reach the server. Try again.');
       setLit([]);
+      setStage(null);
     }
     setStep('');
     setRunning(false);
@@ -229,7 +314,10 @@ export default function Page() {
   function newChat() {
     setThread([]);
     setResult(null);
+    setDeliverable(null);
+    setReports({});
     setLit([]);
+    setStage(null);
     setError('');
   }
 
@@ -272,9 +360,9 @@ export default function Page() {
     : 'Auto';
 
   const pill = running
-    ? { cls: 'statuspill live', text: step || 'Running' }
+    ? { cls: 'statuspill live', text: 'Live run' }
     : result
-      ? { cls: 'statuspill done', text: 'Run complete' }
+      ? { cls: 'statuspill done', text: 'Complete' }
       : { cls: 'statuspill', text: 'Standby' };
 
   return (
@@ -293,202 +381,155 @@ export default function Page() {
 
       <main className="shell">
 
-        {/* ---------------- left: the organization ---------------- */}
-        <section>
+        {/* ---- left: the organization, filling the height ---- */}
+        <section className="col-left">
           <div className="seclab">
             Organization
             <span className="rule" />
             <span className={pill.cls}><i />{pill.text}</span>
           </div>
 
-          <div className="stage">
+          <div className="stagewrap">
+            <div className="stage">
             <OrgChart
               lit={lit}
               format={format}
               onFormat={setFormat}
               role={role}
               onRole={setRole}
+              reports={reports}
             />
-          </div>
-
-          {status && !status.hasKey ? (
-            <div className="note bad">
-              <b>No API key</b>
-              <p>
-                Your site is live but it cannot think yet. Open your project on Vercel and click
-                <b> Environment Variables</b> in the left sidebar — it is a top-level item now, not
-                inside a Settings menu. Add <code>OPENAI_API_KEY</code> with the key pasted on its
-                own, no quotes and no spaces, then Redeploy.
-              </p>
             </div>
+          </div>
+        </section>
+
+        <div className="divider" />
+
+        {/* ---- right: one full-height rail — answer, then the map ---- */}
+        <aside className="rail">
+          {status && !status.hasKey ? (
+          <div className="note bad">
+          <b>No API key</b>
+          <p>
+          Your site is live but it cannot think yet. Open your project on Vercel and click
+          <b> Environment Variables</b> in the left sidebar — it is a top-level item now, not
+          inside a Settings menu. Add <code>OPENAI_API_KEY</code> with the key pasted on its
+          own, no quotes and no spaces, then Redeploy.
+          </p>
+          </div>
           ) : null}
 
-          <div className="cmd">
-            <span className="caret">›</span>
-            <textarea
-              rows={1}
-              value={instruction}
-              onChange={function (e) {
-                setInstruction(e.target.value);
-                e.target.style.height = 'auto';
-                e.target.style.height = Math.min(e.target.scrollHeight, 180) + 'px';
-              }}
-              onKeyDown={function (e) {
-                if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); run(); }
-              }}
-              placeholder="Tell the CEO what you need. It routes the rest."
-            />
-            <Mic onText={setInstruction} disabled={running} />
-            <button className="send" onClick={run} disabled={running || !instruction.trim()} title="Send">
-              {running ? '•' : '↑'}
-            </button>
-          </div>
-
-          <div className="cmdhint">
-            <span>
-              FORMAT <b>{formatLabel}</b>
-              {format
-                ? <button className="clearfmt" type="button" onClick={function () { setFormat(''); }}>clear</button>
-                : <i className="tip">click a card to force one</i>}
-            </span>
-            <span>BRAIN <b>{notesCount} notes</b></span>
-            <span>MODEL <b>{(status && status.model) || '—'}</b></span>
-            <span>ENTER to send · SHIFT+ENTER for a new line</span>
-          </div>
-
           {!notesCount ? (
-            <div className="note warn">
-              <b>Empty brain</b>
-              <p>Open <b>Settings ▸ Second brain</b> and upload your Part 1 folder as a zip. Until then it
-              has nothing of yours to write from.</p>
-            </div>
+          <div className="note warn">
+          <b>Empty brain</b>
+          <p>Open <b>Settings ▸ Second brain</b> and upload your Part 1 folder as a zip. Until then it
+          has nothing of yours to write from.</p>
+          </div>
           ) : notesCount < 4 ? (
-            <div className="note warn">
-              <b>Thin brain — {notesCount} note{notesCount === 1 ? '' : 's'}</b>
-              <p>
-                It will answer, but from almost nothing of yours, so everything will come out
-                generic. Zip your whole Part 1 <code>Second-Brain</code> folder — including
-                <code>Raw/voice-print.md</code>, <code>Raw/business-facts.md</code> and
-                the <code>Brand/</code> folder — and upload it again under
-                <b> Settings ▸ Second brain</b>.
-              </p>
-            </div>
+          <div className="note warn">
+          <b>Thin brain — {notesCount} note{notesCount === 1 ? '' : 's'}</b>
+          <p>
+          It will answer, but from almost nothing of yours, so everything will come out
+          generic. Zip your whole Part 1 <code>Second-Brain</code> folder — including
+          <code>Raw/voice-print.md</code>, <code>Raw/business-facts.md</code> and
+          the <code>Brand/</code> folder — and upload it again under
+          <b> Settings ▸ Second brain</b>.
+          </p>
+          </div>
           ) : null}
 
           {error ? <div className="note bad"><b>Did not work</b><p>{error}</p></div> : null}
 
-
-        {thread.length || running ? (
-        <div className="panel output">
-          <div className="panel-h">
-            <h3>Conversation</h3>
-            {thread.length ? (
-              <button className="newchat" onClick={newChat}>New</button>
-            ) : <span className="tag">Working</span>}
-          </div>
-          <div className="panel-b">
-            {!thread.length && !running ? (
-              <div className="roleinfo">
-                <b>{activeRole.name}</b>
-                <p>{activeRole.blurb}</p>
+          {/* One panel fills the rail. Before and during a run it is the
+              knowledge map with the department currently working named under
+              it; the moment the work lands it becomes the deliverable. */}
+          {deliverable ? (
+            <Deliverable
+              d={deliverable}
+              brand={brand}
+              used={usedNotes}
+              running={running}
+              step={step}
+              onCopy={copy}
+              copied={copied}
+            />
+          ) : (
+            <div className="panel stagepanel">
+              <div className="constellation grow">
+                <Graph graph={vault && vault.graph} />
               </div>
-            ) : (
-              <div className="threadwrap">
-                {thread.map(function (m, i) {
-                  const last = i === thread.length - 1;
-                  if (m.role === 'user') {
-                    return <div className="msg user" key={i}>{m.content}</div>;
-                  }
-                  const empty = !bodyOf(m.content);
-                  const body = empty
-                    ? 'That was too short for the CEO to act on. Say what it is about and who ' +
-                      'it is for — for example: "create a carousel about why most Facebook ads ' +
-                      'fail, for small shop owners".'
-                    : m.content;
-                  const shown = last && !empty ? body.slice(0, typed) : body;
-                  const typing = last && !empty && typed < body.length;
-                  return (
-                    <div className="msg bot" key={i}>
-                      <div className="out">
-                        {shown}
-                        {typing ? <span className="caret" /> : null}
-                      </div>
-                      {typing ? (
-                        <button className="skiptype" onClick={function () { setTyped(m.content.length); }}>
-                          Show it all
-                        </button>
-                      ) : null}
-                      {!typing && m.format === 'carousel' ? (
-                        <Carousel text={m.content} brand={brand} />
-                      ) : null}
-                      <div className="row" style={{ marginTop: 12 }}>
-                        <button className="btn" onClick={function () { copy(m.content, i); }}>
-                          {copied === i ? 'Copied' : 'Copy'}
-                        </button>
-                      </div>
-                      {m.used && m.used.length ? (
-                        <div className="sources">Read from: {m.used.join(' · ')}</div>
-                      ) : null}
-                    </div>
-                  );
-                })}
 
-                {running ? (
-                  <div className="runlog">
-                    {STEPS.map(function (st) {
-                      const done = lit.length > st.lit.length;
-                      const cur = step === st.label;
-                      return (
-                        <div className={'runrow' + (cur ? ' on' : done ? ' did' : '')} key={st.label}>
-                          <i />{st.label}
-                        </div>
-                      );
-                    })}
-                    <div className={'runrow' + (step === 'Producing the deliverable' ? ' on' : '')}>
-                      <i />Producing the deliverable
-                    </div>
+              {running ? (
+                <div className={'livestage ' + ((stage && stage.tone) || 'teal')}>
+                  <span className="ls-lab"><i />{(stage && stage.label) || 'CEO'}</span>
+                  <p>{(stage && stage.text) || step || 'Working…'}</p>
+                </div>
+              ) : (
+                <>
+                  <div className="roleinfo idle">
+                    <b>{activeRole.name}</b>
+                    <p>{activeRole.blurb}</p>
                   </div>
-                ) : null}
-              </div>
-            )}
+                  <div className="stats thin">
+                    <div className="stat"><b>{notesCount}</b><span>notes</span></div>
+                    <div className="stat"><b>{linkCount}</b><span>links</span></div>
+                    <div className="stat"><b>{readiness}%</b><span>brand</span></div>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+        </aside>
+
+        {/* ---- the command bar is docked at the bottom, as in a console ---- */}
+        <div className="dock">
+          {/* the examples are scaffolding for the first run — once the chart is
+              working they get out of the way, and the departments report into
+              the space they leave behind */}
+          {running || deliverable ? null : (
+          <div className="examples">
+          {EXAMPLES.map(function (x, i) {
+          return (
+          <button className="ex" key={i} type="button" onClick={function () { setInstruction(x); }}>
+          {x}
+          </button>
+          );
+          })}
+          </div>
+          )}
+          <div className="cmd">
+          <span className="caret">›</span>
+          <textarea
+          rows={1}
+          value={instruction}
+          onChange={function (e) {
+          setInstruction(e.target.value);
+          e.target.style.height = 'auto';
+          e.target.style.height = Math.min(e.target.scrollHeight, 180) + 'px';
+          }}
+          onKeyDown={function (e) {
+          if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); run(); }
+          }}
+          placeholder={running ? 'Your CEO is working…' : 'Tell the CEO what you need. It routes the rest.'}
+          />
+          <Mic onText={setInstruction} disabled={running} />
+          <button className="send" onClick={run} disabled={running || !instruction.trim()} title="Send">
+          {running ? '•' : '↑'}
+          </button>
+          </div>
+          <div className="cmdhint">
+          <span>
+          FORMAT <b>{formatLabel}</b>
+          {format
+          ? <button className="clearfmt" type="button" onClick={function () { setFormat(''); }}>clear</button>
+          : <i className="tip">click a card to force one</i>}
+          </span>
+          <span>BRAIN <b>{notesCount} notes</b></span>
+          <span>MODEL <b>{(status && status.model) || '—'}</b></span>
+          <span>ENTER to send · SHIFT+ENTER for a new line</span>
           </div>
         </div>
-        ) : null}
 
-          <div className="examples">
-            {EXAMPLES.map(function (x, i) {
-              return (
-                <button className="ex" key={i} type="button" onClick={function () { setInstruction(x); }}>
-                  {x}
-                </button>
-              );
-            })}
-          </div>
-        </section>
-
-        {/* ---------------- right: brain + output ---------------- */}
-        <aside className="side">
-
-          <div className="panel">
-            <div className="panel-h">
-              <h3>Knowledge</h3>
-              <span className="tag">Constellation</span>
-            </div>
-            <div className="constellation">
-              <Graph graph={vault && vault.graph} />
-              <div className="mapfoot">
-                <b>{activeRole.name}</b>
-                <p>{activeRole.blurb}</p>
-              </div>
-            </div>
-            <div className="stats thin">
-              <div className="stat"><b>{notesCount}</b><span>notes</span></div>
-              <div className="stat"><b>{linkCount}</b><span>links</span></div>
-              <div className="stat"><b>{readiness}%</b><span>brand</span></div>
-            </div>
-          </div>
-
-        </aside>
       </main>
 
       <Settings
@@ -500,6 +541,7 @@ export default function Page() {
         saving={saving}
         readiness={readiness}
         vault={vault}
+        storage={(status && status.storage) || ''}
         headers={headers}
         onUploaded={loadAll}
       />

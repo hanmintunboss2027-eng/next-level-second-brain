@@ -37,7 +37,8 @@ body{
   background-size:52px 52px;
   color:var(--ink);
   font-family:var(--font-body);font-size:15px;line-height:1.65;
-  -webkit-font-smoothing:antialiased;min-height:100vh;
+  -webkit-font-smoothing:antialiased;
+  height:100vh;overflow:hidden;display:flex;flex-direction:column;
 }
 h1,h2,h3,h4{font-family:var(--font-display);font-weight:600;margin:0;line-height:1.25;letter-spacing:-.01em}
 p{margin:0}
@@ -47,7 +48,7 @@ button{font-family:inherit}
 
 /* ============ top bar ============ */
 .top{
-  position:sticky;top:0;z-index:40;
+  flex:none;position:relative;z-index:40;
   background:rgba(5,10,18,.86);backdrop-filter:blur(14px);
   border-bottom:1px solid var(--line);
 }
@@ -69,8 +70,41 @@ button{font-family:inherit}
 .btn:disabled{opacity:.45;cursor:not-allowed}
 
 /* ============ shell ============ */
-.shell{max-width:1440px;margin:0 auto;padding:22px 22px 70px;display:grid;grid-template-columns:minmax(0,1.35fr) minmax(340px,.85fr);gap:22px;align-items:start}
-@media (max-width:1080px){.shell{grid-template-columns:1fr}}
+/* A console, not a document: the whole app fits the viewport and nothing
+   below the fold. The org chart owns the left, the command bar is docked at
+   its foot, and the right rail runs the full height and scrolls on its own. */
+.shell{
+  max-width:1600px;margin:0 auto;padding:16px 22px 18px;
+  flex:1;min-height:0;
+  display:grid;
+  grid-template-columns:minmax(0,1fr) 1px minmax(320px,min(560px,40%));
+  grid-template-rows:minmax(0,1fr) auto;
+  column-gap:22px;
+  overflow:hidden;
+}
+.col-left{grid-column:1;grid-row:1;min-height:0;display:flex;flex-direction:column;overflow:hidden}
+.stagewrap{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;overflow:hidden}
+.stagewrap .stage{width:100%}
+.divider{
+  grid-column:2;grid-row:1 / 3;width:1px;
+  background:linear-gradient(180deg,transparent,rgba(255,255,255,.10),transparent);
+}
+.rail{
+  grid-column:3;grid-row:1 / 3;min-height:0;overflow-y:auto;overflow-x:hidden;
+  display:flex;flex-direction:column;gap:16px;padding-right:2px;
+}
+.rail::-webkit-scrollbar{width:8px}
+.rail::-webkit-scrollbar-thumb{background:var(--line);border-radius:99px}
+.dock{grid-column:1;grid-row:2;padding-top:12px}
+
+@media (max-width:1080px){
+  html,body{height:auto;overflow:visible;display:block}
+  .shell{height:auto;overflow:visible;grid-template-columns:1fr;grid-template-rows:auto}
+  .col-left,.rail,.dock{grid-column:1;grid-row:auto}
+  .rail{overflow:visible;max-height:none}
+  .divider{display:none}
+  .stagewrap{overflow:visible}
+}
 
 .seclab{
   font-family:var(--font-mono);font-size:10px;letter-spacing:.24em;text-transform:uppercase;
@@ -92,7 +126,7 @@ button{font-family:inherit}
 
 /* ============ org chart ============ */
 .stage{
-  background:transparent;border:0;border-radius:0;padding:26px 4px 22px;position:relative;overflow:visible;
+  background:transparent;border:0;border-radius:0;padding:8px 4px;position:relative;overflow:visible;
 }
 .stage::before{
   content:"";position:absolute;left:50%;top:-24%;width:62%;height:62%;transform:translateX(-50%);
@@ -227,13 +261,15 @@ button{font-family:inherit}
 }
 .send:hover{filter:brightness(1.12)}
 .send:disabled{opacity:.4;cursor:not-allowed}
-.cmdhint{
+.cmdhint{flex-wrap:wrap;
   display:flex;gap:14px;flex-wrap:wrap;margin-top:10px;
   font-family:var(--font-mono);font-size:10.5px;color:var(--ink-3);letter-spacing:.04em;
 }
 .cmdhint b{color:var(--ink-2);font-weight:600}
 
-.examples{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+.examples{display:flex;gap:8px;margin-bottom:12px;overflow-x:auto;padding-bottom:2px}
+.examples::-webkit-scrollbar{height:0}
+.examples .ex{white-space:nowrap;flex:none}
 .ex{
   border:1px solid var(--line);background:var(--panel);color:var(--ink-2);
   padding:7px 14px;border-radius:99px;font-size:12.5px;cursor:pointer;text-align:left;
@@ -257,7 +293,7 @@ button{font-family:inherit}
 .constellation{
   position:relative;
   background:#08090F;
-  min-height:min(62vh,560px);
+  min-height:340px;
 }
 .constellation svg{display:block;width:100%;height:100%;position:absolute;inset:0}
 .emptysky{
@@ -283,12 +319,11 @@ button{font-family:inherit}
 .roleinfo p{color:var(--ink-2);font-size:13.8px;line-height:1.7}
 
 .out{
-  white-space:pre-wrap;font-size:15px;line-height:1.9;color:var(--ink);
+  white-space:pre-wrap;font-size:14.5px;line-height:1.85;color:var(--ink);
   max-height:none;
 }
-.panel.output{margin-top:18px}
-.panel.output .panel-b{padding:22px 24px}
-.panel.output .msg.bot{border-left-width:3px;padding-left:18px}
+.panel.output .panel-b{padding:18px 20px}
+.panel.output .msg.bot{border-left-width:3px;padding-left:16px}
 .sources{
   margin-top:12px;padding-top:12px;border-top:1px solid var(--line-soft);
   font-family:var(--font-mono);font-size:10.5px;color:var(--ink-3);word-break:break-all;line-height:1.7;
@@ -638,3 +673,304 @@ input::placeholder,textarea::placeholder{color:var(--ink-3)}
 }
 .cmdhint .clearfmt:hover{border-color:var(--rose);color:var(--rose)}
 .cmdhint .tip{font-style:normal;margin-left:8px;color:var(--ink-3);opacity:.75;text-transform:none;letter-spacing:0}
+
+/* ============ live report callouts on the org chart ============ */
+.nodewrap{position:relative;display:inline-flex}
+.report{
+  position:absolute;left:calc(100% + 10px);top:50%;transform:translateY(-50%);
+  width:max-content;max-width:230px;z-index:3;
+  border:1px solid var(--line);border-radius:11px;background:rgba(9,11,20,.94);
+  padding:8px 11px;pointer-events:none;
+  animation:reportin .28s ease-out both;
+}
+@keyframes reportin{from{opacity:0;transform:translateY(-50%) translateX(-6px)}to{opacity:1}}
+.report b{
+  display:flex;align-items:center;gap:6px;
+  font-family:var(--font-mono);font-size:8.5px;letter-spacing:.16em;text-transform:uppercase;
+  margin-bottom:3px;font-weight:600;
+}
+.report b i{width:5px;height:5px;border-radius:50%;background:currentColor;display:block;flex:none}
+.report>span{display:block;font-size:11.5px;line-height:1.5;color:var(--ink)}
+.report.teal{border-color:rgba(25,196,182,.45)} .report.teal b{color:var(--teal)}
+.report.violet{border-color:rgba(155,140,240,.45)} .report.violet b{color:var(--violet)}
+.report.cyan{border-color:rgba(60,134,232,.5)} .report.cyan b{color:#5FB4F5}
+.report.magenta{border-color:rgba(232,90,180,.5)} .report.magenta b{color:#E85AB4}
+
+/* each callout hangs off its own node — right, left, or straight below —
+   so two departments reporting at once can never sit on top of each other */
+.report.right{left:calc(100% + 12px);right:auto;top:50%;transform:translateY(-50%)}
+.report.left{right:calc(100% + 12px);left:auto;top:50%;transform:translateY(-50%)}
+.report.below{left:50%;right:auto;top:calc(100% + 9px);transform:translateX(-50%);max-width:190px}
+.branch .report.below,.tier>.nodewrap>.report.below{max-width:200px}
+.report{max-width:210px;padding:7px 10px}
+@media (max-width:1320px){
+  .report.right,.report.left{
+    left:50%;right:auto;top:calc(100% + 9px);transform:translateX(-50%);max-width:230px;
+  }
+  .tier>.nodewrap>.report.right{top:calc(100% + 6px)}
+}
+@media (max-width:1120px){ .report{display:none} }
+
+/* the department that worked glows in its own colour */
+.node.on.tone-violet{border-color:var(--violet);box-shadow:0 0 0 1px rgba(155,140,240,.35),0 0 28px -8px rgba(155,140,240,.6)}
+.node.on.tone-cyan{border-color:#3C86E8;box-shadow:0 0 0 1px rgba(60,134,232,.35),0 0 28px -8px rgba(60,134,232,.6)}
+
+/* ============ the deliverable ============ */
+.deliv{
+  border:1px solid var(--line);border-radius:16px;background:var(--panel);
+  display:flex;flex-direction:column;overflow:hidden;
+}
+.deliv-h{padding:14px 18px 13px;border-bottom:1px solid var(--line)}
+.deliv-h .lab{
+  display:inline-flex;align-items:center;gap:7px;
+  font-family:var(--font-mono);font-size:9px;letter-spacing:.2em;text-transform:uppercase;
+  color:var(--teal);margin-bottom:5px;
+}
+.deliv-h .lab i{width:6px;height:6px;border-radius:50%;background:var(--teal);box-shadow:0 0 0 3px var(--teal-glow)}
+.deliv-h h3{font-size:16px;line-height:1.35}
+.deliv-b{padding:16px 18px;display:flex;flex-direction:column;gap:14px}
+.deliv-f{
+  padding:11px 18px;border-top:1px solid var(--line);background:rgba(25,196,182,.05);
+  display:flex;align-items:center;gap:9px;font-size:12.5px;color:var(--ink-2);
+}
+.deliv-f .tick{color:var(--teal);display:flex}
+.deliv-f.busy{background:rgba(60,134,232,.06)}
+.deliv-f.busy .tick{color:var(--blue)}
+
+.decision h4,.keypoints h4,.caption h4{
+  font-family:var(--font-mono);font-size:9.5px;letter-spacing:.18em;text-transform:uppercase;
+  color:var(--amber);margin-bottom:12px;
+}
+.keypoints h4{color:var(--blue)}
+.caption h4{color:var(--teal);margin-bottom:0}
+.dline{display:flex;gap:11px;align-items:flex-start;padding:9px 0}
+.dline+.dline{border-top:1px solid var(--line-soft)}
+.dico{
+  width:26px;height:26px;border-radius:8px;flex:none;display:flex;align-items:center;justify-content:center;
+  background:rgba(224,164,88,.12);color:var(--amber);font-size:13px;
+}
+.dline b{
+  display:block;font-family:var(--font-mono);font-size:8.5px;letter-spacing:.18em;
+  text-transform:uppercase;color:var(--ink-3);margin-bottom:3px;
+}
+.dline p{font-size:13.5px;line-height:1.6;color:var(--ink)}
+.dline p.strong{font-weight:600}
+.outcome{margin-top:9px;padding-top:9px;border-top:1px solid var(--line-soft);
+  font-size:12.5px;font-style:italic;color:var(--ink-2);line-height:1.6}
+.keypoints ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px}
+.keypoints li{display:flex;gap:10px;font-size:13.5px;line-height:1.6;color:var(--ink)}
+.keypoints .tick{color:var(--teal);flex:none;margin-top:2px;display:flex}
+
+.viewer{display:flex;flex-direction:column;gap:11px}
+.stagecard{
+  position:relative;border-radius:14px;overflow:hidden;background:#05060B;
+  border:1px solid var(--line);aspect-ratio:1/1;max-width:340px;margin:0 auto;width:100%;
+}
+.stagecard canvas{width:100%;height:100%;display:block}
+.stagecard .nav{
+  position:absolute;top:50%;transform:translateY(-50%);width:32px;height:32px;border-radius:50%;
+  border:1px solid var(--line);background:rgba(6,8,14,.8);color:#fff;font-size:17px;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;backdrop-filter:blur(6px);
+}
+.stagecard .nav:hover{border-color:var(--teal)}
+.stagecard .prev{left:8px} .stagecard .next{right:8px}
+.slidebar{display:flex;align-items:center;gap:12px;justify-content:center}
+.slidebar .kick{
+  font-family:var(--font-mono);font-size:8.5px;letter-spacing:.16em;padding:3px 9px;border-radius:99px;
+  background:rgba(232,90,180,.14);color:#E85AB4;border:1px solid rgba(232,90,180,.35);
+}
+.slidebar .dots{display:flex;gap:5px;align-items:center}
+.slidebar .dots i{width:6px;height:6px;border-radius:50%;background:var(--line);cursor:pointer;display:block}
+.slidebar .dots i.on{background:#E85AB4;width:18px;border-radius:99px}
+.slidebar .count{font-family:var(--font-mono);font-size:11px;color:var(--ink-2)}
+.slidebar .count em{color:var(--ink-3);font-style:normal}
+
+.cap-h{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.cap-h h4{flex:1}
+.cap-h .chars{font-family:var(--font-mono);font-size:10px;color:var(--ink-3)}
+.caption .body{white-space:pre-wrap;font-size:13.5px;line-height:1.8;color:var(--ink)}
+.rawbody summary{
+  cursor:pointer;font-family:var(--font-mono);font-size:10px;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--ink-3);padding:6px 0;
+}
+.rawbody summary:hover{color:var(--ink-2)}
+.rawbody .out{margin-top:8px}
+
+/* ============ deliverable, per format ============ */
+
+/* header gets its own actions, the way a document viewer does */
+.deliv-h{position:relative}
+.deliv-h .hbtns{position:absolute;top:12px;right:14px;display:flex;gap:6px}
+.deliv-h .hbtns button{
+  width:30px;height:30px;border-radius:9px;border:1px solid var(--line);
+  background:var(--panel-2);color:var(--ink-2);display:flex;align-items:center;
+  justify-content:center;cursor:pointer;
+}
+.deliv-h .hbtns button:hover{border-color:var(--teal-dim);color:#fff}
+
+.dkind{
+  display:flex;align-items:center;gap:8px;
+  font-family:var(--font-mono);font-size:9.5px;letter-spacing:.2em;text-transform:uppercase;
+  color:var(--violet);
+}
+.dkind .ki{display:flex;color:var(--violet)}
+.ki{display:inline-flex;vertical-align:-2px;margin-right:7px}
+
+.dtitle{font-size:21px;line-height:1.28;letter-spacing:-.015em}
+.dlog{font-size:13px;line-height:1.65;color:var(--ink-2);margin-top:-6px}
+
+.chip{
+  font-size:11.5px;padding:5px 11px;border-radius:9px;border:1px solid var(--line);
+  background:var(--panel-2);color:var(--ink-2);white-space:nowrap;
+}
+.chip.on{border-color:var(--teal-dim);color:var(--ink);background:rgba(25,196,182,.08)}
+.chips.wide{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.chips.wide .chip{text-align:center;padding:8px 6px}
+
+/* ---- text post: shown the way it will look in the feed ---- */
+.fbcard{border:1px solid var(--line);border-radius:14px;background:var(--panel-2);overflow:hidden}
+.fbcard>header{display:flex;align-items:center;gap:11px;padding:13px 15px;border-bottom:1px solid var(--line-soft)}
+.fbcard>header b{display:block;font-family:var(--font-display);font-size:13.5px}
+.fbcard>header span{font-family:var(--font-mono);font-size:10px;color:var(--ink-3)}
+.fbav{
+  width:36px;height:36px;border-radius:50%;flex:none;display:flex;align-items:center;
+  justify-content:center;background:var(--brand-grad);color:#fff;
+  font-family:var(--font-display);font-size:12.5px;font-weight:700;overflow:hidden;
+}
+.fbav.img{background:var(--panel-3);padding:3px}
+.fbav img{width:100%;height:100%;object-fit:contain;display:block}
+.fbbody{padding:15px}
+.fbbody p{font-size:14px;line-height:1.85;color:var(--ink);white-space:pre-wrap}
+.fbbody p+p{margin-top:13px}
+.fbacts{display:grid;grid-template-columns:repeat(4,1fr);border-top:1px solid var(--line-soft)}
+.fbacts span{
+  display:flex;align-items:center;justify-content:center;gap:6px;padding:11px 4px;
+  font-size:11.5px;color:var(--ink-3);
+}
+.fbacts span+span{border-left:1px solid var(--line-soft)}
+
+/* ---- alternative hooks: one click swaps the opening line ---- */
+.swap h4,.ctacard h4,.grounded h4,.shot-h h4{
+  font-family:var(--font-mono);font-size:9.5px;letter-spacing:.18em;text-transform:uppercase;
+  color:var(--ink-3);margin-bottom:10px;display:flex;align-items:center;
+}
+.swap h4{color:var(--blue)} .swap h4 .ki{color:var(--blue)}
+.ctacard h4{color:var(--teal);margin-bottom:8px} .ctacard h4 .ki{color:var(--teal)}
+.ctacard p{font-size:14px;line-height:1.7;color:var(--ink)}
+.hookrow{
+  width:100%;display:flex;align-items:flex-start;gap:11px;text-align:left;cursor:pointer;
+  border:1px solid var(--line);background:var(--panel-2);border-radius:12px;
+  padding:11px 13px;color:var(--ink-2);font:inherit;font-size:13.5px;line-height:1.6;
+}
+.hookrow+.hookrow{margin-top:7px}
+.hookrow:hover{border-color:var(--line);background:var(--panel-3);color:var(--ink)}
+.hookrow.on{border-color:var(--teal-dim);background:rgba(25,196,182,.07);color:var(--ink)}
+.hookrow .hb{
+  width:20px;height:20px;border-radius:50%;flex:none;display:flex;align-items:center;
+  justify-content:center;background:var(--panel-3);color:var(--ink-3);
+  font-family:var(--font-mono);font-size:10px;margin-top:1px;
+}
+.hookrow.on .hb{background:transparent;color:var(--teal)}
+.hookrow .ht{flex:1}
+.hookrow em{
+  font-family:var(--font-mono);font-size:8.5px;letter-spacing:.16em;text-transform:uppercase;
+  color:var(--ink-3);font-style:normal;margin-top:3px;flex:none;
+}
+
+.grounded h4{margin-bottom:8px}
+.grounded{padding-top:12px;border-top:1px solid var(--line-soft)}
+
+/* ---- carousel: real designed slides ---- */
+.stagecard{aspect-ratio:2/3;max-width:296px}
+.stagecard .slideimg{width:100%;height:100%;object-fit:cover;display:block}
+.rendering{
+  position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;
+  justify-content:center;gap:11px;text-align:center;padding:20px;
+}
+.rendering b{font-family:var(--font-display);font-size:13.5px;font-weight:500;color:var(--ink-2)}
+.rendering em{font-family:var(--font-mono);font-size:10px;letter-spacing:.1em;color:var(--ink-3);font-style:normal}
+.rendering .ring{
+  width:46px;height:46px;border-radius:50%;border:2px solid rgba(232,90,180,.22);
+  border-top-color:#E85AB4;animation:spin 1.1s linear infinite;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+.slidebar .dots i.done{background:rgba(232,90,180,.45)}
+.slidebar .dots i.on.done,.slidebar .dots i.on{background:#E85AB4}
+.imgnote{font-size:11.5px;line-height:1.6;color:var(--amber);text-align:center}
+
+/* ---- reel: the script, and the shot list behind it ---- */
+.seg{display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:5px;
+  background:var(--panel-2);border:1px solid var(--line);border-radius:12px}
+.seg button{
+  border:0;background:transparent;color:var(--ink-3);font:inherit;font-size:13px;
+  padding:8px;border-radius:9px;cursor:pointer;font-family:var(--font-display);
+}
+.seg button.on{background:var(--panel-3);color:#fff}
+.beats{display:flex;flex-direction:column;gap:18px}
+.beat{position:relative;padding-left:18px;border-left:1px solid var(--line-soft)}
+.beat h5{
+  font-family:var(--font-mono);font-size:9px;letter-spacing:.2em;text-transform:uppercase;
+  color:var(--blue);margin-bottom:9px;font-weight:500;
+}
+.beat h5 i{
+  position:absolute;left:-4.5px;top:4px;width:8px;height:8px;border-radius:50%;
+  background:var(--blue);box-shadow:0 0 0 3px rgba(60,134,232,.18);
+}
+.beat p{font-size:15px;line-height:1.75;color:var(--ink)}
+.beat p+p{margin-top:8px}
+
+.shot-h{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+.shot-h h4{flex:1;margin:0;color:var(--blue)} .shot-h h4 .ki{color:var(--blue)}
+.planned{font-family:var(--font-mono);font-size:10px;color:var(--ink-3)}
+.shot{border:1px solid var(--line-soft);border-radius:12px;padding:13px 14px;background:var(--panel-2)}
+.shot+.shot{margin-top:9px}
+.shot-t{display:flex;align-items:center;gap:10px;margin-bottom:9px}
+.shot-t b{font-family:var(--font-mono);font-size:10px;letter-spacing:.16em;color:var(--violet);flex:1}
+.shot-t .tc{font-family:var(--font-mono);font-size:10px;color:var(--ink-3)}
+.shot-t .dur{font-family:var(--font-mono);font-size:9px;padding:2px 7px;border-radius:99px;
+  background:var(--panel-3);color:var(--ink-2)}
+.shot p{font-size:12.8px;line-height:1.65;color:var(--ink-2);display:flex;gap:9px;align-items:flex-start}
+.shot p+p{margin-top:6px}
+.shot .tag{
+  font-family:var(--font-mono);font-size:8.5px;letter-spacing:.14em;text-transform:uppercase;
+  flex:none;width:44px;margin-top:3px;
+}
+.shot .tag.vis{color:#5FB4F5} .shot .tag.txt{color:var(--violet)} .shot .tag.cut{color:#E85AB4}
+
+/* ---- long-form, newsletter ---- */
+.doc p{font-size:14px;line-height:1.85;color:var(--ink);white-space:pre-wrap}
+.doc p+p{margin-top:13px}
+
+/* ---- the rail before the work lands ---- */
+.stagepanel{display:flex;flex-direction:column;flex:1;min-height:0}
+.constellation.grow{flex:1;min-height:220px}
+.livestage{padding:16px 18px 20px;text-align:center;border-top:1px solid var(--line-soft)}
+.livestage .ls-lab{
+  display:inline-flex;align-items:center;gap:7px;
+  font-family:var(--font-mono);font-size:9.5px;letter-spacing:.2em;text-transform:uppercase;
+  margin-bottom:8px;
+}
+.livestage .ls-lab i{width:7px;height:7px;border-radius:50%;background:currentColor;
+  animation:pulse 1.4s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.25}}
+.livestage p{font-size:14px;line-height:1.7;color:var(--ink-2);max-width:34ch;margin:0 auto}
+.livestage.teal .ls-lab{color:var(--teal)}
+.livestage.cyan .ls-lab{color:#5FB4F5}
+.livestage.violet .ls-lab{color:var(--violet)}
+.livestage.magenta .ls-lab{color:#E85AB4}
+.roleinfo.idle{padding:16px 18px 4px;border-top:1px solid var(--line-soft)}
+
+/* the format desks report underneath themselves, so the chart keeps a lane
+   for it rather than letting the callout fall off the bottom of the stage */
+.org{padding-bottom:18px}
+.leaf-wrap .report.below{max-width:210px}
+/* the callouts are absolutely positioned, so letting them paint outside the
+   stage costs no layout — it just stops the chart being cropped to fit them */
+.stagewrap{overflow:visible}
+.col-left{overflow:visible}
+
+/* Content sits directly under Research, so its callout drops a lane rather
+   than landing on top of the report Research just filed. */
+.report{z-index:5}
+.report.right.lower{top:calc(100% + 8px);transform:none}
+@media (max-width:1320px){ .report.right.lower{left:50%;right:auto;transform:translateX(-50%)} }
