@@ -585,19 +585,26 @@ export default function Settings({ open, onClose, brand, onBrandChange, onSaveBr
               <section className="card2">
                 <h4>Carousel production</h4>
                 <p className="sub">
-                  The Content agent writes structured slides, then each slide is rendered on canvas
-                  using your exact hex codes, your fonts and your brand name — ready to download as PNG.
+                  The Content agent writes the slides, then the image model designs each one from
+                  your brand kit — your logo on the slide, your hex codes, your fonts — and hands
+                  back finished PNGs. If your OpenAI account is not verified for images, or the
+                  minute&rsquo;s image allowance runs out, that slide falls back to the canvas
+                  renderer so the deck is always complete.
                 </p>
               </section>
 
               <section className="card2">
                 <h4>Render quality</h4>
-                <p className="sub">Applied to every newly rendered carousel slide.</p>
+                <p className="sub">
+                  Applied to every newly rendered carousel slide. A seven-slide deck is seven
+                  images, so this is the setting that decides what a carousel costs — start on
+                  Low while you are learning, move up when a deck is going out.
+                </p>
                 <div className="qgrid">
                   {QUALITY.map(function (q) {
                     return (
                       <button key={q[0]}
-                        className={'qcard' + ((brand.imageQuality || 'high') === q[0] ? ' on' : '')}
+                        className={'qcard' + ((brand.imageQuality || 'medium') === q[0] ? ' on' : '')}
                         onClick={function () { set('imageQuality', q[0]); }}>
                         <b>{q[1]}</b><span>{q[2]}</span>
                       </button>
