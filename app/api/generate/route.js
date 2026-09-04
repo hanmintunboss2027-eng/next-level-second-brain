@@ -1,6 +1,8 @@
 import { readJson, KEYS } from '../../../lib/store';
+import { allNotes } from '../../../lib/docs';
 import { pickNotes, trimForContext } from '../../../lib/retrieve';
 import { buildSystemPrompt, FORMATS } from '../../../lib/prompt';
+import { SHAPE_RULES, normalise } from '../../../lib/deliverable';
 import { checkAccess, denied } from '../../../lib/auth';
 
 export const runtime = 'nodejs';
@@ -39,13 +41,24 @@ export async function POST(request) {
   }
   const format = FORMATS[body.format] ? body.format : '';
 
-  const vault = await readJson(KEYS.vault, null);
-  const brand = await readJson(KEYS.brand, {});
-  const notes = (vault && vault.notes) || [];
+  /* keep a short conversation so follow-ups like "make it shorter" work */
+  const history = Array.isArray(body.history) ? body.history.slice(-8) : [];
+  const turns = history
+    .filter(function (m) {
+      return m && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string';
+    })
+    .map(function (m) {
+      return { role: m.role, content: m.content.slice(0, 6000) };
+    });
 
-  const picked = pickNotes(notes, instruction, 14);
+  const brand = await readJson(KEYS.brand, {});
+  const bundle = await allNotes();
+  const notes = bundle.notes;
+
+  const recent = turns.map(function (m) { return m.content; }).join(' ');
+  const picked = pickNotes(notes, instruction + ' ' + recent.slice(0, 1200), 14);
   const context = trimForContext(picked, 42000);
-  const system = buildSystemPrompt(brand, context, format);
+  const system = buildSystemPrompt(brand, context, format) + '\n\n' + SHAPE_RULES;
   const model = (process.env.OPENAI_MODEL || 'gpt-4o-mini').trim();
 
   let res;
@@ -59,11 +72,11 @@ export async function POST(request) {
       body: JSON.stringify({
         model: model,
         temperature: 0.75,
-        max_tokens: 2200,
-        messages: [
-          { role: 'system', content: system },
-          { role: 'user', content: instruction }
-        ]
+        max_tokens: 3000,
+        response_format: { type: 'json_object' },
+        messages: [{ role: 'system', content: system }]
+          .concat(turns)
+          .concat([{ role: 'user', content: instruction }])
       })
     });
   } catch (err) {
@@ -107,12 +120,19 @@ export async function POST(request) {
     (data.choices && data.choices[0] && data.choices[0].message &&
       data.choices[0].message.content) || '';
 
+  /* A model that ignores the schema should still produce something usable,
+     so the raw text becomes the body rather than an error. */
+  let parsed = null;
+  try { parsed = JSON.parse(content); } catch (err) { parsed = null; }
+  const deliverable = normalise(parsed, content, format);
+
   return Response.json({
     ok: true,
-    content: content,
+    deliverable: deliverable,
+    content: deliverable.body,
     model: model,
     used: picked.map(function (n) { return n.path; }),
     vaultCount: notes.length,
-    format: format || 'auto'
+    format: deliverable.format
   });
 }
