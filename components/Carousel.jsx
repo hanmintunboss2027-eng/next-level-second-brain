@@ -125,6 +125,192 @@ export function drawSlide(canvas, slide, i, total, brand) {
   ctx.fillRect(0, SIZE - 14, SIZE * ((i + 1) / total), 14);
 }
 
+
+/* ------------------------------------------- Burmese type, drawn locally */
+
+/* The image model typesets Latin beautifully and Myanmar script not at all —
+   ask it for "ကြီးစားပါ" and it returns a confident, meaningless approximation
+   of the glyph shapes. No wording of the prompt fixes that, so for Burmese we
+   stop asking: the model paints the artwork with no words in it, and the type
+   is set here, on canvas, in a real Myanmar font. */
+
+const MYANMAR = /[\u1000-\u109F\uA9E0-\uA9FF\uAA60-\uAA7F]/;
+
+export function hasBurmese(text) {
+  return MYANMAR.test(String(text || ''));
+}
+
+/* True when this piece must be composited rather than typeset by the model. */
+export function needsLocalType(slide) {
+  if (!slide) return false;
+  if (hasBurmese(slide.headline)) return true;
+  return (slide.lines || []).some(hasBurmese);
+}
+
+function loadImage(src) {
+  return new Promise(function (resolve, reject) {
+    const im = new Image();
+    im.crossOrigin = 'anonymous';
+    im.onload = function () { resolve(im); };
+    im.onerror = reject;
+    im.src = src;
+  });
+}
+
+/* A webfont that has not loaded yet silently falls back to a system face, and
+   on canvas that means boxes instead of Burmese. Ask for the exact faces at the
+   exact sizes before drawing a single glyph. */
+async function readyFonts(head, body) {
+  if (typeof document === 'undefined' || !document.fonts) return;
+  const want = [
+    '700 92px "' + head + '"', '400 40px "' + body + '"',
+    '700 92px "Padauk"', '400 40px "Padauk"',
+    '700 92px "Noto Sans Myanmar"', '400 40px "Noto Sans Myanmar"'
+  ];
+  try {
+    await Promise.all(want.map(function (f) { return document.fonts.load(f); }));
+    await document.fonts.ready;
+  } catch (err) { /* draw with what we have */ }
+}
+
+/* Cover-fit, the way CSS background-size: cover does it. */
+function drawCover(ctx, im, size) {
+  const r = Math.max(size / im.width, size / im.height);
+  const w = im.width * r;
+  const h = im.height * r;
+  ctx.drawImage(im, (size - w) / 2, (size - h) / 2, w, h);
+}
+
+/* Is the area we are about to write on light or dark? Sampling it beats
+   guessing: the model is told to leave the lower half quiet, but a photograph
+   that comes back bright at the bottom would swallow white type. */
+function meanLuma(ctx, x, y, w, h) {
+  let data;
+  try { data = ctx.getImageData(x, y, w, h).data; }
+  catch (err) { return 0.3; }
+  let sum = 0;
+  const step = 4 * 41;          /* every 41st pixel — plenty, and fast */
+  let n = 0;
+  for (let i = 0; i < data.length; i += step) {
+    sum += (0.2126 * data[i] + 0.7152 * data[i + 1] + 0.0722 * data[i + 2]) / 255;
+    n += 1;
+  }
+  return n ? sum / n : 0.3;
+}
+
+/* Fit the headline into at most `maxLines` by stepping the size down. */
+function fitHeadline(ctx, text, font, maxWidth, start, min, maxLines) {
+  let size = start;
+  for (;;) {
+    ctx.font = '700 ' + size + 'px ' + font;
+    const lines = wrap(ctx, text, maxWidth);
+    if (lines.length <= maxLines || size <= min) return { size: size, lines: lines.slice(0, maxLines) };
+    size -= 4;
+  }
+}
+
+/* Paint the model's artwork, then set the words over it ourselves. */
+export async function composeSlide(canvas, bgSrc, slide, brand, opts) {
+  const o = opts || {};
+  const colors = (brand && brand.colors) || {};
+  const support = pick(colors, 'support', '#14B3AB');
+  const headFont = '"' + ((brand && brand.headingFont) || 'Noto Sans Myanmar').replace(/["']/g, '') +
+    '", "Noto Sans Myanmar", "Padauk", sans-serif';
+  const bodyFont = '"' + ((brand && brand.bodyFont) || 'Noto Sans Myanmar').replace(/["']/g, '') +
+    '", "Noto Sans Myanmar", "Padauk", sans-serif';
+
+  await readyFonts(
+    ((brand && brand.headingFont) || 'Noto Sans Myanmar').replace(/["']/g, ''),
+    ((brand && brand.bodyFont) || 'Noto Sans Myanmar').replace(/["']/g, '')
+  );
+
+  canvas.width = SIZE;
+  canvas.height = SIZE;
+  const ctx = canvas.getContext('2d');
+
+  ctx.fillStyle = pick(colors, 'dark', '#0B2450');
+  ctx.fillRect(0, 0, SIZE, SIZE);
+  if (bgSrc) {
+    try { drawCover(ctx, await loadImage(bgSrc), SIZE); }
+    catch (err) { /* keep the flat brand field */ }
+  }
+
+  const M = Math.round(SIZE * 0.085);       /* the 8% margin the brief asks for */
+  const zoneTop = Math.round(SIZE * 0.52);
+  const light = meanLuma(ctx, 0, zoneTop, SIZE, SIZE - zoneTop) > 0.55;
+
+  /* A scrim, not a box: the artwork stays visible and the words stay readable
+     whatever came back. */
+  const scrim = ctx.createLinearGradient(0, zoneTop - 120, 0, SIZE);
+  const base = light ? '255,255,255' : '8,14,26';
+  scrim.addColorStop(0, 'rgba(' + base + ',0)');
+  scrim.addColorStop(0.45, 'rgba(' + base + ',0.62)');
+  scrim.addColorStop(1, 'rgba(' + base + ',0.9)');
+  ctx.fillStyle = scrim;
+  ctx.fillRect(0, zoneTop - 120, SIZE, SIZE - zoneTop + 120);
+
+  const ink = light ? '#0B1622' : '#FFFFFF';
+  const dim = light ? 'rgba(11,22,34,.7)' : 'rgba(255,255,255,.8)';
+
+  ctx.textBaseline = 'top';
+
+  const maxW = SIZE - M * 2;
+  const head = fitHeadline(ctx, slide.headline || '', headFont, maxW, 108, 52, 4);
+
+  const lines = (slide.lines || []).slice(0, 2);
+  ctx.font = '400 38px ' + bodyFont;
+  const wrapped = [];
+  lines.forEach(function (l) { wrap(ctx, l, maxW).slice(0, 2).forEach(function (x) { wrapped.push(x); }); });
+
+  const headLead = head.size * 1.16;
+  const bodyLead = 54;
+  const blockH = head.lines.length * headLead + (wrapped.length ? 26 + wrapped.length * bodyLead : 0);
+  let y = SIZE - M - blockH - (o.footer === false ? 0 : 54);
+
+  ctx.fillStyle = support;
+  ctx.fillRect(M, y - 34, 88, 6);
+
+  ctx.fillStyle = ink;
+  ctx.font = '700 ' + head.size + 'px ' + headFont;
+  head.lines.forEach(function (l) { ctx.fillText(l, M, y); y += headLead; });
+
+  if (wrapped.length) {
+    y += 26;
+    ctx.fillStyle = dim;
+    ctx.font = '400 38px ' + bodyFont;
+    wrapped.forEach(function (l) { ctx.fillText(l, M, y); y += bodyLead; });
+  }
+
+  /* The mark goes on last, from the real file — the model mangles a wordmark
+     as readily as it mangles Burmese. */
+  const logo = brand && brand.logoUrl;
+  if (logo && o.mark !== false) {
+    try {
+      const im = await loadImage(logo);
+      const w = Math.round(SIZE * 0.13);
+      const h = Math.round(w * (im.height / im.width));
+      ctx.globalAlpha = 0.95;
+      ctx.drawImage(im, M, SIZE - M - h, w, h);
+      ctx.globalAlpha = 1;
+    } catch (err) { /* no mark rather than a broken one */ }
+  } else if (brand && brand.name) {
+    ctx.fillStyle = dim;
+    ctx.font = '600 26px ' + bodyFont;
+    ctx.fillText(brand.name, M, SIZE - M - 26);
+  }
+
+  if (o.total > 1) {
+    ctx.fillStyle = dim;
+    ctx.font = '600 24px ' + bodyFont;
+    const tag = String(o.n).padStart(2, '0') + ' / ' + String(o.total).padStart(2, '0');
+    ctx.textAlign = 'right';
+    ctx.fillText(tag, SIZE - M, SIZE - M - 24);
+    ctx.textAlign = 'left';
+  }
+
+  return canvas.toDataURL('image/png');
+}
+
 export default function Carousel({ text, brand }) {
   const [slides, setSlides] = useState([]);
   const refs = useRef([]);

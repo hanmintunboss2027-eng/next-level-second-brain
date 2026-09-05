@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { drawSlide, SIZE } from './Carousel';
+import { drawSlide, composeSlide, needsLocalType, SIZE } from './Carousel';
 
 /* The finished job, handed over the way a studio hands work over — and
    differently for every format, because a text post, a carousel and a reel are
@@ -330,21 +330,36 @@ function CarouselDeck({ d, brand, onCopy, copied, onCurrent }) {
         return;
       }
       const n = next++;
+      /* A slide whose words are Burmese gets artwork only; the type goes on
+         afterwards in a real Myanmar font. */
+      const local = needsLocalType(slides[n]);
       fetch('/api/slide-image', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ slide: slides[n], total: total, title: d.title })
+        body: JSON.stringify({ slide: slides[n], total: total, title: d.title, textless: local })
       })
         .then(function (r) { return r.json().then(function (j) { return { s: r.status, ok: r.ok, j: j }; }); })
         .then(function (out) {
           if (run.current !== mine) { alive -= 1; return; }
           if (out.ok && out.j && out.j.image) {
-            put(n, out.j.image);
-          } else {
-            if (out.j && out.j.error) setNote(out.j.error);
-            if (out.s === 403) giveUp = true;     /* not verified for images */
-            put(n, draw(n));                      /* just this slide falls back */
+            if (!local) { put(n, out.j.image); worker(); return; }
+            composeSlide(document.createElement('canvas'), out.j.image, slides[n],
+              brandRef.current || {}, { n: n + 1, total: total })
+              .then(function (src) {
+                if (run.current !== mine) { alive -= 1; return; }
+                put(n, src);
+                worker();
+              })
+              .catch(function () {
+                if (run.current !== mine) { alive -= 1; return; }
+                put(n, draw(n));
+                worker();
+              });
+            return;
           }
+          if (out.j && out.j.error) setNote(out.j.error);
+          if (out.s === 403) giveUp = true;     /* not verified for images */
+          put(n, draw(n));                      /* just this slide falls back */
           worker();
         })
         .catch(function () {
@@ -490,20 +505,30 @@ function ImagePost({ d, brand, onCopy, copied, onCurrent }) {
       return c.toDataURL('image/png');
     }
 
+    /* Burmese type is set here, not by the image model — so for Burmese we ask
+       for artwork with no words in it and lay the headline over it ourselves. */
+    const local = needsLocalType(shot);
+
     fetch('/api/slide-image', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ slide: shot, total: 1, title: d.title })
+      body: JSON.stringify({ slide: shot, total: 1, title: d.title, textless: local })
     })
       .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
       .then(function (out) {
         if (run.current !== mine) return;
         if (out.ok && out.j && out.j.image) {
-          setImg(out.j.image);
-        } else {
-          if (out.j && out.j.error) setNote(out.j.error);
-          setImg(fallback());
+          if (!local) { setImg(out.j.image); setBusy(false); return; }
+          return composeSlide(document.createElement('canvas'), out.j.image, shot,
+            brandRef.current || {}, { n: 1, total: 1 })
+            .then(function (src) {
+              if (run.current !== mine) return;
+              setImg(src);
+              setBusy(false);
+            });
         }
+        if (out.j && out.j.error) setNote(out.j.error);
+        setImg(fallback());
         setBusy(false);
       })
       .catch(function () {
