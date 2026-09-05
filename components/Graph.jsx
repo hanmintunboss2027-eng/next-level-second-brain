@@ -130,7 +130,7 @@ function layout(nodes, links) {
 
 /* The frame the map is seen through. Zooming is just a smaller window onto
    the same coordinates, which keeps every distance in the layout honest. */
-function fit(pts) {
+function fit(pts, ratio) {
   if (!pts.length) return { x: 0, y: 0, w: W, h: H };
   let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
   pts.forEach(function (p) {
@@ -141,8 +141,9 @@ function fit(pts) {
   x0 -= pad; y0 -= pad; x1 += pad; y1 += pad;
   const w = Math.max(160, x1 - x0);
   const h = Math.max(120, y1 - y0);
-  /* keep the frame's shape close to the panel's so nothing is letterboxed away */
-  const ratio = W / H;
+  /* The frame takes the panel's own shape. Fitting to a fixed 4:3 box inside a
+     tall column letterboxed the map into a thin band with dead space above and
+     below it — the panel looked empty and the notes looked tiny. */
   let fw = w, fh = h;
   if (w / h > ratio) fh = w / ratio; else fw = h * ratio;
   return { x: x0 - (fw - w) / 2, y: y0 - (fh - h) / 2, w: fw, h: fh };
@@ -162,10 +163,28 @@ export default function Graph({ graph }) {
     return m;
   }, [pts]);
 
-  const base = useMemo(function () { return fit(pts); }, [pts]);
+  /* the panel is resizable, so the frame is measured, not assumed */
+  const [ratio, setRatio] = useState(W / H);
+  const base = useMemo(function () { return fit(pts, ratio); }, [pts, ratio]);
   const [view, setView] = useState(base);
   const svgRef = useRef(null);
   const drag = useRef(null);
+
+  useEffect(function () {
+    const el = svgRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    function read() {
+      const r = el.getBoundingClientRect();
+      if (r.width > 20 && r.height > 20) {
+        const next = r.width / r.height;
+        setRatio(function (prev) { return Math.abs(prev - next) > 0.02 ? next : prev; });
+      }
+    }
+    read();
+    const ro = new ResizeObserver(read);
+    ro.observe(el);
+    return function () { ro.disconnect(); };
+  }, [pts]);
 
   useEffect(function () { setView(base); }, [base]);
 
