@@ -43,14 +43,21 @@ function artDirection(brand, slide, total, title) {
   /* The deck needs a system, not seven unrelated pictures. Cover carries the
      brand colour, the middle runs light so the deck breathes, the last slide
      comes back to the brand colour to close it. */
-  const role = slide.n === 1 ? 'cover'
-    : slide.n === total ? 'closing'
-      : 'body';
+  const role = total === 1 ? 'single'
+    : slide.n === 1 ? 'cover'
+      : slide.n === total ? 'closing'
+        : 'body';
 
   const L = [];
 
-  L.push('Art-direct and typeset ONE finished square 1:1 social carousel slide — slide ' +
-    slide.n + ' of ' + total + ' of a deck titled "' + title + '".');
+  /* The same route draws a seven-slide deck and a one-off image post. Telling
+     the model it is making "slide 1 of 1" invites it to draw deck furniture —
+     page numbers, a cover treatment for a thing with no second page. */
+  L.push(total > 1
+    ? ('Art-direct and typeset ONE finished square 1:1 social carousel slide — slide ' +
+      slide.n + ' of ' + total + ' of a deck titled "' + title + '".')
+    : ('Art-direct and typeset ONE finished square 1:1 social image post titled "' +
+      title + '". It stands alone — there is no deck around it.'));
   L.push('');
   L.push('STANDARD: this is professional brand work by a senior graphic designer for a paying client. Editorial poster discipline — Swiss/international typographic style, Pentagram-grade restraint. It must look art-directed, expensive and adult. It is NOT a school project, NOT a template, NOT clip art.');
   L.push('');
@@ -87,7 +94,9 @@ function artDirection(brand, slide, total, title) {
     L.push('Use a disciplined two-colour palette plus white and near-black. No other hues.');
   }
   L.push('Flat, confident colour fields. No rainbow, no candy colours, no neon gradients, no soft pastel blends.');
-  L.push(role === 'cover'
+  L.push(role === 'single'
+    ? 'This one picture has to do the whole job: a full-bleed field of the brand colour or near-black with the type reversed out of it, or a single strong photograph with the type set cleanly over its quietest area. It is the scroll-stopper and the close at once.'
+    : role === 'cover'
     ? 'COVER: a full-bleed field of the brand colour or near-black, type reversed out of it. This is the scroll-stopper — the boldest slide in the deck.'
     : role === 'closing'
       ? 'CLOSING SLIDE: return to the brand colour, calmer than the cover, with the call to action given room and the brand lockup allowed to breathe.'
@@ -112,7 +121,9 @@ function artDirection(brand, slide, total, title) {
     L.push('No logo and no brand mark on this slide. A designer signs the cover and the closing slide, not every page — the deck is identified by its type and colour, not by a repeated badge.');
   }
   if (brand && brand.feel) L.push('Brand character: ' + brand.feel + '.');
-  L.push('Set a small, discreet slide number "' + slide.n + '/' + total + '" in the opposite corner, in the smallest type on the slide.');
+  if (total > 1) {
+    L.push('Set a small, discreet slide number "' + slide.n + '/' + total + '" in the opposite corner, in the smallest type on the slide.');
+  }
   L.push('');
   L.push('Deliver it as a flat finished graphic filling the whole square canvas edge to edge — not a mockup, not a device frame, not a photo of a screen, not a page with a border around it.');
 
