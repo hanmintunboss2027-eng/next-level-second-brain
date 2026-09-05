@@ -247,13 +247,17 @@ export default function Page() {
         });
 
         /* The brain grows: every run is filed back into the vault, so the
-           knowledge map gains a node for the work you just did. */
+           knowledge map gains a node for the work you just did. It is filed as
+           output, not source — a finished post is a record of what was said,
+           not evidence for what to say next, and letting it back into
+           retrieval is how one test run quietly becomes the house style. */
         if (d && d.title) {
           fetch('/api/docs', {
             method: 'POST',
             headers: Object.assign({ 'content-type': 'application/json' }, headers),
             body: JSON.stringify({
               title: 'Session — ' + d.title,
+              kind: 'output',
               body: [d.route, '', d.body, '', d.caption].filter(Boolean).join('\n')
             })
           }).then(function () { loadAll(); }).catch(function () { });
