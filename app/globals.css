@@ -1299,3 +1299,12 @@ input::placeholder,textarea::placeholder{color:var(--ink-3)}
 .cmd .caret{font-size:13px;padding-bottom:11px}
 .cmd textarea{font-size:14.5px;padding:11px 0;max-height:150px}
 .send{width:36px;height:36px;border-radius:10px;font-size:15px;margin-bottom:2px}
+
+/* ---- the chart drops its jewellery ----
+   The connector ports, the CMO–Research tie line and the CHOSEN badge were all
+   decoration: the ports repeated what the line already said, the tie line
+   described a relationship the chart never uses, and the badge announced a
+   state the highlighted card was already showing. Gone. */
+.nodewrap::before, .nodewrap::after, .leaf-wrap::after { display: none }
+.peerlink { display: none }
+.node.leaf.sel::after { content: none }
