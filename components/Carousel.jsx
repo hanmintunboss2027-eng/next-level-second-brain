@@ -164,8 +164,8 @@ async function readyFonts(head, body) {
   if (typeof document === 'undefined' || !document.fonts) return;
   const want = [
     '700 92px "' + head + '"', '400 40px "' + body + '"',
-    '700 92px "Padauk"', '400 40px "Padauk"',
-    '700 92px "Noto Sans Myanmar"', '400 40px "Noto Sans Myanmar"'
+    '800 92px "Noto Sans Myanmar"', '500 40px "Noto Sans Myanmar"',
+    '400 40px "Noto Sans Myanmar"', '700 92px "Padauk"', '400 40px "Padauk"'
   ];
   try {
     await Promise.all(want.map(function (f) { return document.fonts.load(f); }));
@@ -202,10 +202,10 @@ function meanLuma(ctx, x, y, w, h) {
    enough lines, and no line wider than the column. Myanmar text measures
    awkwardly through a font-fallback chain, so trusting the line count alone is
    how a headline ends up running off the right edge. */
-function fitHeadline(ctx, text, font, maxWidth, start, min, maxLines) {
+function fitHeadline(ctx, text, font, weight, maxWidth, start, min, maxLines) {
   let size = start;
   for (;;) {
-    ctx.font = '700 ' + size + 'px ' + font;
+    ctx.font = weight + ' ' + size + 'px ' + font;
     const lines = wrap(ctx, text, maxWidth);
     const widest = lines.reduce(function (m, l) {
       return Math.max(m, ctx.measureText(l).width);
@@ -224,8 +224,15 @@ export async function composeSlide(canvas, bgSrc, slide, brand, opts) {
   const support = pick(colors, 'support', '#14B3AB');
   const headName = ((brand && brand.headingFont) || 'Noto Sans Myanmar').replace(/["']/g, '');
   const bodyName = ((brand && brand.bodyFont) || 'Noto Sans Myanmar').replace(/["']/g, '');
-  const headFont = '"' + headName + '", "Noto Sans Myanmar", "Padauk", sans-serif';
-  const bodyFont = '"' + bodyName + '", "Noto Sans Myanmar", "Padauk", sans-serif';
+
+  /* Burmese leads the stack, whatever the brand's Latin face is. A grotesque
+     drawn for Latin has no Myanmar glyphs at all, so the browser falls back
+     per character and the line ends up set in two unrelated faces. One family
+     that draws both scripts keeps the headline looking like one headline —
+     and Noto Sans Myanmar at 800 gives Burmese the weight a poster needs. */
+  const headFont = '"Noto Sans Myanmar", "' + headName + '", "Padauk", sans-serif';
+  const bodyFont = '"Noto Sans Myanmar", "' + bodyName + '", "Padauk", sans-serif';
+  const HEAD_WEIGHT = '800';
 
   await readyFonts(headName, bodyName);
 
@@ -242,8 +249,6 @@ export async function composeSlide(canvas, bgSrc, slide, brand, opts) {
 
   const M = Math.round(SIZE * 0.085);       /* the 8% margin the brief asks for */
 
-  /* The mark is measured before anything is placed. Reserving a guessed height
-     for it is how supporting lines end up printed across the logo. */
   let mark = null;
   const logoSrc = brand && brand.logoUrl;
   if (logoSrc && o.mark !== false) {
@@ -253,77 +258,86 @@ export async function composeSlide(canvas, bgSrc, slide, brand, opts) {
       mark = { im: im, w: w, h: Math.round(w * (im.height / im.width)) };
     } catch (err) { mark = null; }
   }
-  const footerH = mark ? mark.h : ((brand && brand.name) ? 26 : 0);
-  const footerGap = footerH ? 40 : 0;
 
+  /* ---- the lockup, top left ---------------------------------------------
+     A mark belongs where the eye starts, not where it finishes. Top left also
+     keeps it clear of the headline entirely, so nothing has to be reserved at
+     the bottom and the type gets the whole lower block. */
+  const markH = mark ? mark.h : ((brand && brand.name) ? 30 : 0);
+  if (markH) {
+    const capH = M + markH + 40;
+    const topScrim = ctx.createLinearGradient(0, 0, 0, capH);
+    topScrim.addColorStop(0, 'rgba(8,14,26,0.55)');
+    topScrim.addColorStop(1, 'rgba(8,14,26,0)');
+    ctx.fillStyle = topScrim;
+    ctx.fillRect(0, 0, SIZE, capH);
+  }
+
+  ctx.textBaseline = 'top';
+  ctx.textAlign = 'left';
+
+  if (mark) {
+    ctx.drawImage(mark.im, M, M, mark.w, mark.h);
+  } else if (brand && brand.name) {
+    ctx.fillStyle = 'rgba(255,255,255,.92)';
+    ctx.font = '600 30px ' + bodyFont;
+    ctx.fillText(brand.name, M, M);
+  }
+
+  if (o.total > 1) {
+    ctx.fillStyle = 'rgba(255,255,255,.75)';
+    ctx.font = '600 24px ' + bodyFont;
+    ctx.textAlign = 'right';
+    ctx.fillText(String(o.n).padStart(2, '0') + ' / ' + String(o.total).padStart(2, '0'),
+      SIZE - M, M + 4);
+    ctx.textAlign = 'left';
+  }
+
+  /* ---- the words, bottom left ------------------------------------------ */
   const maxW = SIZE - M * 2;
-  const head = fitHeadline(ctx, slide.headline || '', headFont, maxW, 104, 46, 4);
+  const head = fitHeadline(ctx, slide.headline || '', headFont, HEAD_WEIGHT, maxW, 104, 46, 4);
 
-  ctx.font = '400 38px ' + bodyFont;
+  ctx.font = '500 38px ' + bodyFont;
   const wrapped = [];
   (slide.lines || []).slice(0, 2).forEach(function (l) {
     wrap(ctx, l, maxW).slice(0, 2).forEach(function (x) { wrapped.push(x); });
   });
 
-  const headLead = head.size * 1.16;
+  const headLead = head.size * 1.18;
   const bodyLead = 54;
   const blockH = head.lines.length * headLead + (wrapped.length ? 26 + wrapped.length * bodyLead : 0);
 
-  let y = SIZE - M - footerH - footerGap - blockH;
-  const top = Math.max(Math.round(SIZE * 0.34), Math.min(y - 46, SIZE - 200));
-  if (y < top) y = top;
+  let y = SIZE - M - blockH;
+  const ceiling = Math.round(SIZE * 0.36);
+  if (y < ceiling) y = ceiling;
 
   /* Sample the ground the words will actually sit on, then scrim it — a scrim
      rather than a box, so the artwork stays visible underneath. */
   const zoneTop = Math.max(0, y - 60);
   const light = meanLuma(ctx, 0, zoneTop, SIZE, SIZE - zoneTop) > 0.55;
   const base = light ? '255,255,255' : '8,14,26';
-  const scrim = ctx.createLinearGradient(0, zoneTop - 140, 0, SIZE);
+  const scrim = ctx.createLinearGradient(0, zoneTop - 150, 0, SIZE);
   scrim.addColorStop(0, 'rgba(' + base + ',0)');
-  scrim.addColorStop(0.4, 'rgba(' + base + ',0.66)');
-  scrim.addColorStop(1, 'rgba(' + base + ',0.93)');
+  scrim.addColorStop(0.4, 'rgba(' + base + ',0.7)');
+  scrim.addColorStop(1, 'rgba(' + base + ',0.94)');
   ctx.fillStyle = scrim;
-  ctx.fillRect(0, Math.max(0, zoneTop - 140), SIZE, SIZE);
+  ctx.fillRect(0, Math.max(0, zoneTop - 150), SIZE, SIZE);
 
   const ink = light ? '#0B1622' : '#FFFFFF';
-  const dim = light ? 'rgba(11,22,34,.72)' : 'rgba(255,255,255,.82)';
-
-  ctx.textBaseline = 'top';
-  ctx.textAlign = 'left';
+  const dim = light ? 'rgba(11,22,34,.74)' : 'rgba(255,255,255,.84)';
 
   ctx.fillStyle = support;
-  ctx.fillRect(M, y - 34, 88, 6);
+  ctx.fillRect(M, y - 36, 88, 6);
 
   ctx.fillStyle = ink;
-  ctx.font = '700 ' + head.size + 'px ' + headFont;
+  ctx.font = HEAD_WEIGHT + ' ' + head.size + 'px ' + headFont;
   head.lines.forEach(function (l) { ctx.fillText(l, M, y); y += headLead; });
 
   if (wrapped.length) {
     y += 26;
     ctx.fillStyle = dim;
-    ctx.font = '400 38px ' + bodyFont;
+    ctx.font = '500 38px ' + bodyFont;
     wrapped.forEach(function (l) { ctx.fillText(l, M, y); y += bodyLead; });
-  }
-
-  /* The mark goes on last, from the real file — the model mangles a wordmark
-     as readily as it mangles Burmese. */
-  if (mark) {
-    ctx.globalAlpha = 0.95;
-    ctx.drawImage(mark.im, M, SIZE - M - mark.h, mark.w, mark.h);
-    ctx.globalAlpha = 1;
-  } else if (brand && brand.name) {
-    ctx.fillStyle = dim;
-    ctx.font = '600 26px ' + bodyFont;
-    ctx.fillText(brand.name, M, SIZE - M - 26);
-  }
-
-  if (o.total > 1) {
-    ctx.fillStyle = dim;
-    ctx.font = '600 24px ' + bodyFont;
-    ctx.textAlign = 'right';
-    ctx.fillText(String(o.n).padStart(2, '0') + ' / ' + String(o.total).padStart(2, '0'),
-      SIZE - M, SIZE - M - 24);
-    ctx.textAlign = 'left';
   }
 
   return canvas.toDataURL('image/png');
