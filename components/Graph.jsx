@@ -69,6 +69,11 @@ function layout(nodes, links) {
       /* every note keeps a different amount of personal space — give them all
          the same and the relaxation quietly rebuilds the grid */
       gap: 44 + rnd() * 52,
+      /* Each note keeps its own twinkle. Stars that pulse together read as one
+         blinking object; stars that drift apart read as a sky. Both values come
+         off the same seeded stream, so the sky is the same every visit. */
+      tw: (rnd() * 7).toFixed(2),
+      td: (3.8 + rnd() * 4.2).toFixed(2),
       vx: 0,
       vy: 0
     };
@@ -249,10 +254,14 @@ export default function Graph({ graph }) {
     );
   }
 
-  /* Far out it is a constellation; close in it is a reading map. Labels fade
-     rather than pop, so the transition never feels like a redraw. */
+  /* Far out it is a constellation; close in it is a reading map.
+
+     At rest the map is a sky — points of light, no names. Two hundred labels at
+     that size are a grey smear that says nothing, and the shape of the thing is
+     what you are meant to see first. Push in and the names fade up, because by
+     then you are asking about a particular corner rather than the whole. */
   const zoom = base.w / view.w;
-  const nameOpacity = Math.max(0, Math.min(1, (zoom - 0.62) / 0.38));
+  const nameOpacity = Math.max(0, Math.min(1, (zoom - 1.55) / 0.75));
   const hairline = view.w / W;
 
   return (
@@ -284,10 +293,15 @@ export default function Graph({ graph }) {
             const label = p.label.length > 22 ? p.label.slice(0, 21) + '…' : p.label;
             return (
               <g key={p.id} className="gnode">
-                <circle cx={p.x} cy={p.y} r={r + 4} fill={fill} opacity=".16" />
-                <circle cx={p.x} cy={p.y} r={r} fill={fill}>
-                  <title>{p.id + ' · ' + p.deg + ' links'}</title>
-                </circle>
+                <g
+                  className="star"
+                  style={{ animationDelay: p.tw + 's', animationDuration: p.td + 's' }}
+                >
+                  <circle cx={p.x} cy={p.y} r={r + 4} fill={fill} opacity=".16" />
+                  <circle cx={p.x} cy={p.y} r={r} fill={fill}>
+                    <title>{p.id + ' · ' + p.deg + ' links'}</title>
+                  </circle>
+                </g>
                 {nameOpacity > 0.02 ? (
                   <text
                     x={p.x}
