@@ -279,6 +279,17 @@ export default function Settings({ open, onClose, brand, onBrandChange, onSaveBr
     setBusy('');
   }
 
+  /* One bad file in an imported vault used to mean re-exporting the whole thing
+     from Obsidian. It is the commonest cleanup there is, so it belongs here. */
+  async function removeVaultFile(path) {
+    setBusy('vault');
+    try {
+      await fetch('/api/vault?path=' + encodeURIComponent(path), { method: 'DELETE', headers: headers });
+      onUploaded();
+    } catch (e) { /* ignore */ }
+    setBusy('');
+  }
+
   async function removeDoc(id) {
     setBusy('docs');
     try {
@@ -287,6 +298,11 @@ export default function Settings({ open, onClose, brand, onBrandChange, onSaveBr
     } catch (e) { /* list refresh will show the truth */ }
     setBusy('');
   }
+
+  /* The graph carries every node; the vault tab lists only the imported files,
+     because the hand-added documents already have their own list. */
+  const vaultFiles = (vault && vault.graph && vault.graph.nodes || [])
+    .filter(function (n) { return n.group !== 'doc'; });
 
   const notes = vault && !vault.empty ? vault.count : 0;
   const links = vault && vault.graph ? vault.graph.links.length : 0;
@@ -365,6 +381,39 @@ export default function Settings({ open, onClose, brand, onBrandChange, onSaveBr
                 {vault && vault.updatedAt ? (
                   <p className="sources">Last vault upload {new Date(vault.updatedAt).toLocaleString()}</p>
                 ) : null}
+              </section>
+
+              <section className="card2">
+                <div className="card2-h">
+                  <h4>Files in the vault</h4>
+                  <span className="tag">{vaultFiles.length}</span>
+                </div>
+                <p className="sub">
+                  Everything here is read as source material. A file from another business —
+                  an exported customer list, someone else&rsquo;s notes — will steer what gets
+                  written, so remove what does not belong.
+                </p>
+                {!vaultFiles.length ? (
+                  <p className="sub">Nothing uploaded yet.</p>
+                ) : (
+                  <ul className="doclist">
+                    {vaultFiles.map(function (n) {
+                      return (
+                        <li key={n.id}>
+                          <span>
+                            <b>{n.label}</b>
+                            <em>{n.id}</em>
+                          </span>
+                          <button
+                            onClick={function () { removeVaultFile(n.id); }}
+                            disabled={busy === 'vault'}
+                            aria-label={'Remove ' + n.id}
+                          >&#10005;</button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
               </section>
             </>
           ) : null}
