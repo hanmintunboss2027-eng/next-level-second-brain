@@ -1308,3 +1308,7 @@ input::placeholder,textarea::placeholder{color:var(--ink-3)}
 .nodewrap::before, .nodewrap::after, .leaf-wrap::after { display: none }
 .peerlink { display: none }
 .node.leaf.sel::after { content: none }
+
+/* the format desks are read-outs now, so they stop behaving like buttons */
+.node.leaf{cursor:default}
+.node.leaf:hover{background:#0F1A2E;border-color:#22344F}

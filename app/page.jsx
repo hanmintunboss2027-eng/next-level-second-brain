@@ -22,7 +22,6 @@ export default function Page() {
 
   const [open, setOpen] = useState(false);
   const [instruction, setInstruction] = useState('');
-  const [format, setFormat] = useState('');
   const [role, setRole] = useState('ceo');
   const [running, setRunning] = useState(false);
   const [lit, setLit] = useState([]);
@@ -157,17 +156,10 @@ export default function Page() {
        CEO → Research → CMO → Content → the format desk, and each one says what
        it is doing the moment it lights up. The same line shows over the
        knowledge map on the right, so the wait reads as work, not as a spinner. */
-    const fmtKey = format || 'post';
-    const fmtLabel = (LEAVES.filter(function (l) { return l.key === fmtKey; })[0] || {}).label || 'Text';
-    const LEAFWORK = {
-      post: 'Matching your voice · brand kit and knowledge notes',
-      image: 'Writing the caption and the image brief',
-      carousel: 'Writing and art-directing the slides',
-      reel: 'Writing the script and the shot list',
-      longform: 'Drafting the long-form piece',
-      newsletter: 'Writing the subject line and the body'
-    };
-    const leafWork = LEAFWORK[fmtKey] || LEAFWORK.post;
+    /* Which desk does the work is the CEO's call, not ours — so during the run
+       the whole bench lights up and only the desk that actually produced the
+       piece stays lit once the answer lands. */
+    const leafWork = 'Producing the deliverable in your voice';
 
     const LIVE = [
       { at: 0, lit: ['ceo'], tone: 'teal', label: 'CEO',
@@ -182,9 +174,9 @@ export default function Page() {
       { at: 3600, lit: ['ceo', 'research', 'cmo', 'content'], tone: 'violet', label: 'Content',
         step: 'Content is coordinating the deliverable',
         rep: { contentKicker: 'Online', content: 'Content is coordinating the deliverable' } },
-      { at: 4800, lit: ['ceo', 'research', 'cmo', 'content', 'leaf', 'leaf:' + fmtKey],
-        tone: 'magenta', label: fmtLabel, step: leafWork,
-        rep: { leafKicker: fmtLabel, leaf: leafWork } }
+      { at: 4800, lit: ['ceo', 'research', 'cmo', 'content', 'leaf'],
+        tone: 'magenta', label: 'Production', step: leafWork,
+        rep: {} }
     ];
     LIVE.forEach(function (s) {
       timers.current.push(setTimeout(function () {
@@ -199,7 +191,7 @@ export default function Page() {
       const res = await fetch('/api/generate', {
         method: 'POST',
         headers: Object.assign({ 'content-type': 'application/json' }, headers),
-        body: JSON.stringify({ instruction: asked, format: format, history: history })
+        body: JSON.stringify({ instruction: asked, format: '', history: history })
       });
       const data = await res.json();
       if (!res.ok) {
@@ -215,7 +207,7 @@ export default function Page() {
            model skipped the structure, wrap whatever text came back so the
            panel still opens rather than quietly falling back to the idle map. */
         const d = data.deliverable || (data.content ? {
-          title: 'Deliverable', format: data.format || format || 'post',
+          title: 'Deliverable', format: data.format || 'post',
           team: [], route: '', reports: {}, grounded: [],
           platform: 'Facebook', angle: 'Standard angle', subtitle: '',
           body: data.content, words: 0, chars: (data.content || '').length,
@@ -230,7 +222,7 @@ export default function Page() {
         /* Only the departments that actually worked stay lit, and each shows
            what it handed over — the same way the run narrated itself. */
         const team = (d && d.team && d.team.length) ? d.team : ['cmo', 'research', 'content'];
-        const key = (d && d.format) || format || 'post';
+        const key = (d && d.format) || 'post';
         const label = (LEAVES.filter(function (l) { return l.key === key; })[0] || {}).label || 'Text';
         setLit(['ceo'].concat(team).concat(['leaf', 'leaf:' + key]));
         setStage(null);
@@ -357,8 +349,6 @@ export default function Page() {
             <div className="stage">
             <OrgChart
               lit={lit}
-              format={format}
-              onFormat={setFormat}
               role={role}
               onRole={setRole}
               reports={reports}
