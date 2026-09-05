@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 /* Obsidian's own convention: every note is the same violet dot and the
    folder only tints it, so the eye reads the shape of the links rather
@@ -85,6 +85,26 @@ function layout(nodes, links) {
   return pts;
 }
 
+/* The frame the map is seen through. Zooming is just a smaller window onto
+   the same coordinates, which keeps every distance in the layout honest. */
+function fit(pts) {
+  if (!pts.length) return { x: 0, y: 0, w: W, h: H };
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  pts.forEach(function (p) {
+    if (p.x < x0) x0 = p.x; if (p.x > x1) x1 = p.x;
+    if (p.y < y0) y0 = p.y; if (p.y > y1) y1 = p.y;
+  });
+  const pad = 54;
+  x0 -= pad; y0 -= pad; x1 += pad; y1 += pad;
+  const w = Math.max(160, x1 - x0);
+  const h = Math.max(120, y1 - y0);
+  /* keep the frame's shape close to the panel's so nothing is letterboxed away */
+  const ratio = W / H;
+  let fw = w, fh = h;
+  if (w / h > ratio) fh = w / ratio; else fw = h * ratio;
+  return { x: x0 - (fw - w) / 2, y: y0 - (fh - h) / 2, w: fw, h: fh };
+}
+
 export default function Graph({ graph }) {
   const nodes = (graph && graph.nodes) || [];
   const links = (graph && graph.links) || [];
@@ -99,6 +119,66 @@ export default function Graph({ graph }) {
     return m;
   }, [pts]);
 
+  const base = useMemo(function () { return fit(pts); }, [pts]);
+  const [view, setView] = useState(base);
+  const svgRef = useRef(null);
+  const drag = useRef(null);
+
+  useEffect(function () { setView(base); }, [base]);
+
+  /* Zoom towards the cursor, so the note you are pointing at stays put —
+     the difference between a map you can read and one you have to chase. */
+  const zoomAt = useCallback(function (factor, cx, cy) {
+    setView(function (v) {
+      const min = 90;                       /* how far in you can push */
+      const max = Math.max(base.w * 3.2, W * 2);
+      let w = Math.min(max, Math.max(min, v.w * factor));
+      const k = w / v.w;
+      const h = v.h * k;
+      return { x: cx - (cx - v.x) * k, y: cy - (cy - v.y) * k, w: w, h: h };
+    });
+  }, [base.w]);
+
+  function toUser(e) {
+    const el = svgRef.current;
+    if (!el) return null;
+    const r = el.getBoundingClientRect();
+    /* the viewBox is fitted with "meet", so work out the real drawn box */
+    const scale = Math.min(r.width / view.w, r.height / view.h);
+    const dw = view.w * scale, dh = view.h * scale;
+    const ox = r.left + (r.width - dw) / 2;
+    const oy = r.top + (r.height - dh) / 2;
+    return { x: view.x + (e.clientX - ox) / scale, y: view.y + (e.clientY - oy) / scale, scale: scale };
+  }
+
+  useEffect(function () {
+    const el = svgRef.current;
+    if (!el) return;
+    function onWheel(e) {
+      e.preventDefault();
+      const u = toUser(e);
+      if (!u) return;
+      zoomAt(e.deltaY > 0 ? 1.14 : 0.877, u.x, u.y);
+    }
+    el.addEventListener('wheel', onWheel, { passive: false });
+    return function () { el.removeEventListener('wheel', onWheel); };
+  });
+
+  function down(e) {
+    const u = toUser(e);
+    if (!u) return;
+    drag.current = { x: e.clientX, y: e.clientY, vx: view.x, vy: view.y, scale: u.scale };
+    if (e.currentTarget.setPointerCapture) e.currentTarget.setPointerCapture(e.pointerId);
+  }
+  function move(e) {
+    const d = drag.current;
+    if (!d) return;
+    setView(function (v) {
+      return { x: d.vx - (e.clientX - d.x) / d.scale, y: d.vy - (e.clientY - d.y) / d.scale, w: v.w, h: v.h };
+    });
+  }
+  function up() { drag.current = null; }
+
   if (!pts.length) {
     return (
       <div className="emptysky">
@@ -107,10 +187,35 @@ export default function Graph({ graph }) {
     );
   }
 
+  /* Far out it is a constellation; close in it is a reading map. Labels fade
+     rather than pop, so the transition never feels like a redraw. */
+  const zoom = base.w / view.w;
+  const nameOpacity = Math.max(0, Math.min(1, (zoom - 0.62) / 0.38));
+  const hairline = view.w / W;
+
   return (
     <>
-      <svg viewBox={'0 0 ' + W + ' ' + H} role="img" aria-label="Your knowledge graph">
-        <g stroke="#2A3A55" strokeWidth="1" strokeOpacity=".85">
+      <div className="gzoom">
+        <button type="button" title="Zoom out" aria-label="Zoom out"
+          onClick={function () { zoomAt(1.3, view.x + view.w / 2, view.y + view.h / 2); }}>&minus;</button>
+        <b>{Math.round(zoom * 100)}%</b>
+        <button type="button" title="Zoom in" aria-label="Zoom in"
+          onClick={function () { zoomAt(0.77, view.x + view.w / 2, view.y + view.h / 2); }}>+</button>
+        <button type="button" title="Fit the whole map" aria-label="Fit"
+          onClick={function () { setView(base); }}>&#9678;</button>
+      </div>
+
+      <svg
+        ref={svgRef}
+        className={drag.current ? 'grabbing' : ''}
+        viewBox={view.x + ' ' + view.y + ' ' + view.w + ' ' + view.h}
+        onPointerDown={down}
+        onPointerMove={move}
+        onPointerUp={up}
+        onPointerCancel={up}
+        onDoubleClick={function () { setView(base); }}
+        role="img" aria-label="Your knowledge graph — scroll to zoom, drag to move">
+        <g stroke="#2A3A55" strokeWidth={hairline} strokeOpacity=".85">
           {links.map(function (l, i) {
             const a = index.get(l.source);
             const b = index.get(l.target);
@@ -120,7 +225,7 @@ export default function Graph({ graph }) {
         </g>
         <g>
           {pts.map(function (p) {
-            const r = Math.min(11, 3.6 + Math.sqrt(p.deg) * 1.9);
+            const r = Math.min(11, 3.6 + Math.sqrt(p.deg) * 1.9) * Math.max(0.55, Math.min(1.35, hairline));
             const fill = COLORS[p.group] || COLORS.wiki;
             /* Every note is named. An unlabelled dot tells you nothing, and
                the whole point of the map is recognising your own material. */
@@ -131,19 +236,22 @@ export default function Graph({ graph }) {
                 <circle cx={p.x} cy={p.y} r={r} fill={fill}>
                   <title>{p.id + ' · ' + p.deg + ' links'}</title>
                 </circle>
-                <text
-                  x={p.x}
-                  y={p.y + r + 11}
-                  textAnchor="middle"
-                  fontFamily="'Manrope',system-ui,sans-serif"
-                  fontSize={p.deg > 1 ? 11 : 10}
-                  fill="#C4D4E6"
-                  stroke="#0A0F1A"
-                  strokeWidth="3"
-                  paintOrder="stroke"
-                >
-                  {label}
-                </text>
+                {nameOpacity > 0.02 ? (
+                  <text
+                    x={p.x}
+                    y={p.y + r + 11 * hairline}
+                    textAnchor="middle"
+                    fontFamily="'Manrope',system-ui,sans-serif"
+                    fontSize={(p.deg > 1 ? 11 : 10) * hairline}
+                    fill="#C4D4E6"
+                    opacity={nameOpacity}
+                    stroke="#0A0F1A"
+                    strokeWidth={3 * hairline}
+                    paintOrder="stroke"
+                  >
+                    {label}
+                  </text>
+                ) : null}
               </g>
             );
           })}
