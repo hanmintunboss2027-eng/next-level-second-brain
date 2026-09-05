@@ -1,4 +1,5 @@
 import { readJson, writeJson, KEYS } from '../../../lib/store';
+import { docToNote } from '../../../lib/docs';
 import { checkAccess, denied } from '../../../lib/auth';
 
 export const runtime = 'nodejs';
@@ -16,7 +17,10 @@ export async function GET(request) {
   if (!checkAccess(request)) return denied();
   const docs = await readJson(KEYS.docs, { items: [] });
   const items = (docs.items || []).map(function (d) {
-    return { id: d.id, title: d.title, addedAt: d.addedAt, size: (d.body || '').length };
+    return {
+      id: d.id, title: d.title, addedAt: d.addedAt, size: (d.body || '').length,
+      kind: docToNote(d).kind
+    };
   });
   return Response.json({ items: items, count: items.length });
 }
@@ -42,6 +46,7 @@ export async function POST(request) {
           id: newId(),
           title: name.replace(/\.[a-z]+$/i, ''),
           body: body.slice(0, MAX_BODY),
+          kind: 'source',
           addedAt: new Date().toISOString()
         });
       }
@@ -58,10 +63,13 @@ export async function POST(request) {
       if (!title || !text) {
         return Response.json({ error: 'Give it a title and some content.' }, { status: 400 });
       }
+      /* Anything the app files back about its own work says so, so retrieval
+         can tell a brief the person wrote from a post the app produced. */
       added.push({
         id: newId(),
         title: title.slice(0, 120),
         body: text.slice(0, MAX_BODY),
+        kind: body && body.kind === 'output' ? 'output' : 'source',
         addedAt: new Date().toISOString()
       });
     }
