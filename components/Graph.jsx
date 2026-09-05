@@ -17,22 +17,58 @@ const COLORS = {
 const W = 560;
 const H = 440;
 
-/* A small spring layout. No d3 — a hundred iterations of repulsion plus
-   spring pull is enough for a few hundred notes and keeps the bundle tiny. */
+/* An organic layout, not a lattice.
+
+   The first version seeded every note on a ring and then let repulsion push
+   them apart. With few links to pull anything together that settles into a
+   crystal — a neat grid of dots, which is exactly what a map of your own
+   thinking should never look like. So the seeding does the real work: a
+   golden-angle spiral spreads notes evenly without ever lining them up, a
+   seeded jitter breaks the remaining symmetry, and the relaxation afterwards
+   is gentle enough to respect that rather than flatten it back into rows. */
+
+const GOLDEN = Math.PI * (3 - Math.sqrt(5));   /* 137.5°, the angle leaves use */
+
+/* Deterministic randomness: the same vault must draw the same map every time,
+   or the graph appears to rearrange itself behind the person's back. */
+function seeded(seed) {
+  let t = seed >>> 0;
+  return function () {
+    t += 0x6D2B79F5;
+    let x = Math.imul(t ^ (t >>> 15), 1 | t);
+    x ^= x + Math.imul(x ^ (x >>> 7), 61 | x);
+    return ((x ^ (x >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
 function layout(nodes, links) {
   const n = nodes.length;
   if (!n) return [];
 
+  let seed = n * 2654435761;
+  nodes.forEach(function (node) {
+    const id = String(node.id || '');
+    for (let i = 0; i < id.length; i++) seed = (seed * 31 + id.charCodeAt(i)) >>> 0;
+  });
+  const rnd = seeded(seed);
+
+  /* Core notes sit nearer the middle, but only as a bias — never as a ring. */
+  const pull = { core: 0.55, brand: 0.82, raw: 0.86 };
+  const spread = Math.min(W, H) * 0.46 / Math.sqrt(n);
+
   const pts = nodes.map(function (node, i) {
-    const ring = node.group === 'core' ? 0.12 : node.group === 'brand' || node.group === 'raw' ? 0.42 : 0.78;
-    const a = (i / n) * Math.PI * 2;
+    const a = i * GOLDEN + rnd() * 0.9;
+    const r = spread * Math.sqrt(i + 0.6) * (pull[node.group] || 1) * (0.82 + rnd() * 0.42);
     return {
       id: node.id,
       label: node.label,
       group: node.group,
       deg: node.links || 0,
-      x: W / 2 + Math.cos(a) * (W * 0.38) * ring + (i % 7) * 3,
-      y: H / 2 + Math.sin(a) * (H * 0.40) * ring + (i % 5) * 3,
+      x: W / 2 + Math.cos(a) * r,
+      y: H / 2 + Math.sin(a) * r * 0.86,
+      /* every note keeps a different amount of personal space — give them all
+         the same and the relaxation quietly rebuilds the grid */
+      gap: 44 + rnd() * 52,
       vx: 0,
       vy: 0
     };
@@ -45,41 +81,48 @@ function layout(nodes, links) {
     .map(function (l) { return [index.get(l.source), index.get(l.target)]; })
     .filter(function (e) { return e[0] && e[1]; });
 
-  const repel = 6200;
-  const springLen = 92;
+  /* Enough relaxation to stop notes touching, not enough to line them up. */
+  const springLen = 96;
+  const steps = 26;
 
-  for (let step = 0; step < 140; step++) {
+  for (let step = 0; step < steps; step++) {
+    const heat = 1 - step / steps;
+
     for (let i = 0; i < pts.length; i++) {
       const a = pts[i];
       for (let j = i + 1; j < pts.length; j++) {
         const b = pts[j];
-        let dx = a.x - b.x;
-        let dy = a.y - b.y;
-        let d2 = dx * dx + dy * dy;
-        if (d2 < 1) { d2 = 1; dx = (i - j) || 1; dy = 1; }
-        const f = repel / d2;
-        const d = Math.sqrt(d2);
+        const dx = a.x - b.x;
+        const dy = a.y - b.y;
+        const d = Math.sqrt(dx * dx + dy * dy) || 0.01;
+        /* only push apart what is actually crowding: a global repulsion is
+           what packs everything into equal spacing, i.e. into a grid */
+        const gap = Math.max(a.gap, b.gap);
+        if (d > gap) continue;
+        const f = (gap - d) * 0.13;
         a.vx += (dx / d) * f; a.vy += (dy / d) * f;
         b.vx -= (dx / d) * f; b.vy -= (dy / d) * f;
       }
     }
+
     for (const e of edges) {
       const a = e[0], b = e[1];
       const dx = b.x - a.x, dy = b.y - a.y;
       const d = Math.max(1, Math.sqrt(dx * dx + dy * dy));
-      const f = (d - springLen) * 0.02;
+      const f = (d - springLen) * 0.028;
       a.vx += (dx / d) * f; a.vy += (dy / d) * f;
       b.vx -= (dx / d) * f; b.vy -= (dy / d) * f;
     }
+
     for (const p of pts) {
-      /* gentle pull to the middle so nothing drifts off the canvas */
-      p.vx += (W / 2 - p.x) * 0.0032;
-      p.vy += (H / 2 - p.y) * 0.0032;
-      p.x += p.vx * 0.34;
-      p.y += p.vy * 0.34;
-      p.vx *= 0.72; p.vy *= 0.72;
-      p.x = Math.max(46, Math.min(W - 46, p.x));
-      p.y = Math.max(26, Math.min(H - 30, p.y));
+      p.vx += (W / 2 - p.x) * 0.0016;
+      p.vy += (H / 2 - p.y) * 0.0016;
+      /* a little heat early on, so nothing settles into a repeating pattern */
+      p.vx += (rnd() - 0.5) * 7 * heat;
+      p.vy += (rnd() - 0.5) * 7 * heat;
+      p.x += p.vx * 0.5;
+      p.y += p.vy * 0.5;
+      p.vx *= 0.62; p.vy *= 0.62;
     }
   }
   return pts;
@@ -195,16 +238,6 @@ export default function Graph({ graph }) {
 
   return (
     <>
-      <div className="gzoom">
-        <button type="button" title="Zoom out" aria-label="Zoom out"
-          onClick={function () { zoomAt(1.3, view.x + view.w / 2, view.y + view.h / 2); }}>&minus;</button>
-        <b>{Math.round(zoom * 100)}%</b>
-        <button type="button" title="Zoom in" aria-label="Zoom in"
-          onClick={function () { zoomAt(0.77, view.x + view.w / 2, view.y + view.h / 2); }}>+</button>
-        <button type="button" title="Fit the whole map" aria-label="Fit"
-          onClick={function () { setView(base); }}>&#9678;</button>
-      </div>
-
       <svg
         ref={svgRef}
         className={drag.current ? 'grabbing' : ''}
