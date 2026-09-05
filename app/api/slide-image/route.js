@@ -18,7 +18,7 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
 
-const SIZE = '1024x1536';
+const SIZE = '1024x1024';   /* square — the feed's own shape */
 
 function dataUrlToFile(url, name) {
   const m = /^data:([^;,]+)?(;base64)?,(.*)$/s.exec(String(url || ''));
@@ -40,40 +40,83 @@ function artDirection(brand, slide, total, title) {
     .filter(function (k) { return c[k]; })
     .map(function (k) { return k + ' ' + c[k]; }).join(', ');
 
-  const lines = [];
-  lines.push(
-    'Design one finished social media carousel slide, portrait 4:5, slide ' +
-    slide.n + ' of ' + total + ' in a deck titled "' + title + '".'
-  );
-  lines.push('This is a real published marketing graphic, not a mockup, not a device frame, not a photo of a screen. Fill the whole canvas edge to edge.');
-  lines.push('');
-  lines.push('TEXT THAT MUST APPEAR ON THE SLIDE, spelled exactly as written, nothing added and nothing translated:');
-  lines.push('Headline: ' + slide.headline);
-  (slide.lines || []).forEach(function (l) { lines.push('Body line: ' + l); });
-  lines.push('');
-  lines.push('Typography: the headline is the largest thing on the slide and must be instantly readable at thumbnail size. Body lines are much smaller and sit under it. Render every character precisely — this text is in the brand language and may be Burmese script, so reproduce the glyphs exactly as given and do not substitute Latin letters.');
+  /* The deck needs a system, not seven unrelated pictures. Cover carries the
+     brand colour, the middle runs light so the deck breathes, the last slide
+     comes back to the brand colour to close it. */
+  const role = slide.n === 1 ? 'cover'
+    : slide.n === total ? 'closing'
+      : 'body';
+
+  const L = [];
+
+  L.push('Art-direct and typeset ONE finished square 1:1 social carousel slide — slide ' +
+    slide.n + ' of ' + total + ' of a deck titled "' + title + '".');
+  L.push('');
+  L.push('STANDARD: this is professional brand work by a senior graphic designer for a paying client. Editorial poster discipline — Swiss/international typographic style, Pentagram-grade restraint. It must look art-directed, expensive and adult. It is NOT a school project, NOT a template, NOT clip art.');
+  L.push('');
+
+  L.push('=== THE TEXT (set exactly, nothing added, nothing translated, nothing invented) ===');
+  L.push('Headline: ' + slide.headline);
+  (slide.lines || []).forEach(function (l) { L.push('Supporting line: ' + l); });
+  L.push('Do not put any other words on the slide. No captions, no labels, no invented taglines, no lorem ipsum, no watermark, no signature.');
+  L.push('This text may be Burmese script — reproduce every glyph exactly as given, never substitute Latin letters or approximate the shapes.');
+  L.push('');
+
+  L.push('=== TYPOGRAPHY ===');
+  L.push('One dominant idea per slide. The headline is enormous — it should occupy roughly a third of the canvas and be legible as a thumbnail. Set it tight: leading close to the cap height, optical kerning, no letter-spacing on large sizes.');
+  L.push('Supporting lines are far smaller — about a fifth of the headline size — in a lighter weight, left-aligned to the exact same margin as the headline. Two or three lines maximum.');
+  L.push('Strong hierarchy through SIZE and WEIGHT only. Never centre everything, never stretch or condense the type, never outline it, never put a drop shadow, glow, bevel or gradient on any letter.');
   if (brand && (brand.headingFont || brand.bodyFont)) {
-    lines.push('Typeface feel — headings like ' + (brand.headingFont || 'a strong grotesque') +
-      ', body like ' + (brand.bodyFont || 'a clean sans') + '.');
+    L.push('Type feel — headline like ' + (brand.headingFont || 'a confident modern grotesque') +
+      ', supporting text like ' + (brand.bodyFont || 'a clean neutral sans') + '.');
+  } else {
+    L.push('Type feel — a confident modern grotesque for the headline, a clean neutral sans beneath it.');
   }
-  lines.push('');
-  if (palette) lines.push('Use ONLY this brand palette: ' + palette + '. No other hues.');
-  if (brand && brand.feel) lines.push('Brand feel: ' + brand.feel + '.');
+  L.push('');
+
+  L.push('=== LAYOUT ===');
+  L.push('Build on a strict margin grid: a generous, equal margin on all four sides — about 8% of the canvas — and nothing ever breaks it except a deliberate full-bleed colour field or photograph.');
+  L.push('Leave a lot of empty space. Emptiness is the luxury signal; crowding is what makes design look amateur. Roughly half the slide should carry nothing at all.');
+  L.push('Anchor the composition: type block in one clear zone, image or colour field in another. No floating decorations scattered around the edges.');
+  L.push('');
+
+  L.push('=== COLOUR ===');
+  if (palette) {
+    L.push('Use ONLY these brand colours: ' + palette + ', plus white and near-black. No other hue anywhere on the slide.');
+  } else {
+    L.push('Use a disciplined two-colour palette plus white and near-black. No other hues.');
+  }
+  L.push('Flat, confident colour fields. No rainbow, no candy colours, no neon gradients, no soft pastel blends.');
+  L.push(role === 'cover'
+    ? 'COVER: a full-bleed field of the brand colour or near-black, type reversed out of it. This is the scroll-stopper — the boldest slide in the deck.'
+    : role === 'closing'
+      ? 'CLOSING SLIDE: return to the brand colour, calmer than the cover, with the call to action given room and the brand lockup allowed to breathe.'
+      : 'BODY SLIDE: mostly white or a very pale neutral with dark type, so the deck has rhythm between the bold ends. Use the brand colour only as a small accent.');
+  L.push('');
+
+  L.push('=== IMAGERY — READ THIS TWICE ===');
+  L.push('If the slide carries an image it must be ONE of exactly two things:');
+  L.push('  (a) real, high-end studio product photography — the actual physical product or material, sharp, soft directional light, shallow depth of field, honest colour, the way a premium brand shoots a catalogue; or');
+  L.push('  (b) a single restrained geometric device — one large circle, one diagonal band, one framed crop — in a brand colour.');
+  L.push(slide.art ? 'Subject to picture: ' + slide.art + '.' : 'If nothing specific is needed, use a pure colour field and let the typography carry the slide.');
+  L.push('');
+  L.push('ABSOLUTELY FORBIDDEN — these are what make a slide look childish, and any one of them ruins the work:');
+  L.push('cartoon or comic illustration; mascots; flat-vector illustrated people with simplified faces; stick figures; clip art; doodles; hand-drawn sketches; emoji; sticker or badge shapes scattered as decoration; rainbows; stars; sparkles; smiley faces; sad faces; speech bubbles; 3D plastic toy renders; blobby organic shapes; drop shadows; bevels; glows; page curls; ribbons; starbursts; multiple unrelated decorative objects floating in the composition.');
+  L.push('If a human is shown at all, it is a real photograph of a real adult, not an illustration.');
+  L.push('');
+
+  L.push('=== BRAND ===');
   if (brand && brand.name) {
-    lines.push('Put the brand name "' + brand.name + '"' +
-      (brand.tagline ? ' with the small tagline "' + brand.tagline + '"' : '') +
-      ' in a small lockup in the top-left corner.');
+    L.push('Place the brand mark small and quiet in one corner' +
+      (brand.tagline ? ' with the tiny tagline "' + brand.tagline + '"' : '') +
+      ' — about 6% of the canvas width. It identifies the work; it does not compete with the headline.');
   }
-  if (slide.art) lines.push('Imagery on this slide: ' + slide.art + '.');
-  lines.push(
-    slide.n === 1
-      ? 'This is the cover: boldest type, strongest colour, made to stop the scroll.'
-      : slide.n === total
-        ? 'This is the last slide: the call to action, calm and clear, with the brand lockup given room.'
-        : 'This is a body slide: keep it calmer than the cover so the deck has rhythm.'
-  );
-  lines.push('No watermark. No stock-photo look. No lorem ipsum. No extra text beyond what is listed above.');
-  return lines.join('\n');
+  if (brand && brand.feel) L.push('Brand character: ' + brand.feel + '.');
+  L.push('Set a small, discreet slide number "' + slide.n + '/' + total + '" in the opposite corner, in the smallest type on the slide.');
+  L.push('');
+  L.push('Deliver it as a flat finished graphic filling the whole square canvas edge to edge — not a mockup, not a device frame, not a photo of a screen, not a page with a border around it.');
+
+  return L.join('\n');
 }
 
 export async function POST(request) {
