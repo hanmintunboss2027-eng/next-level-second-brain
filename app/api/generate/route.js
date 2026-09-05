@@ -56,7 +56,16 @@ export async function POST(request) {
   const notes = bundle.notes;
 
   const recent = turns.map(function (m) { return m.content; }).join(' ');
-  const picked = pickNotes(notes, instruction + ' ' + recent.slice(0, 1200), 14);
+
+  /* "Write a long-form piece" has nothing in it to retrieve on: the stop-list
+     eats every word, and whatever happens to be pinned decides the subject.
+     Anchoring the query with what this business actually is keeps a vague
+     instruction pointed at the right shelf of the vault instead of the biggest
+     file in it. */
+  const anchor = [brand.name, brand.tagline, brand.useMore, brand.feel]
+    .filter(Boolean).join(' ').slice(0, 400);
+
+  const picked = pickNotes(notes, instruction + ' ' + recent.slice(0, 1200) + ' ' + anchor, 14);
   const context = trimForContext(picked, 42000);
   const system = buildSystemPrompt(brand, context, format) + '\n\n' + SHAPE_RULES;
   const model = (process.env.OPENAI_MODEL || 'gpt-4o-mini').trim();
