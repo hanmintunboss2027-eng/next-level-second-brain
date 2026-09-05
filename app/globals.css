@@ -253,7 +253,12 @@ button{font-family:inherit;color:inherit}
 .cmd textarea{
   flex:1;background:transparent;border:0;color:var(--ink);font-family:inherit;font-size:15px;
   padding:14px 0;resize:none;line-height:1.6;max-height:180px;
+  /* The box still scrolls once a long instruction outgrows it — it just does it
+     silently. A native scrollbar with its little arrow buttons parked next to
+     the mic is the one piece of raw browser chrome in an otherwise drawn UI. */
+  overflow-y:auto;scrollbar-width:none;-ms-overflow-style:none;
 }
+.cmd textarea::-webkit-scrollbar{width:0;height:0;display:none}
 .cmd textarea:focus{outline:none}
 .cmd textarea::placeholder{color:var(--ink-3)}
 .send{
