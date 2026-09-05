@@ -121,6 +121,10 @@ function artDirection(brand, slide, total, title, textless) {
   L.push('  (a) real, high-end studio product photography — the actual physical product or material, sharp, soft directional light, shallow depth of field, honest colour, the way a premium brand shoots a catalogue; or');
   L.push('  (b) a single restrained geometric device — one large circle, one diagonal band, one framed crop — in a brand colour.');
   L.push(slide.art ? 'Subject to picture: ' + slide.art + '.' : 'If nothing specific is needed, use a pure colour field and let the typography carry the slide.');
+  /* The trap for a business that sells stickers, labels or decals: "show the
+     product" reads to the model as "draw sticker graphics", and back comes clip
+     art. Naming the physical object and the camera closes it. */
+  L.push('If the subject is the product itself, it is a PHOTOGRAPH of the real physical object — printed vinyl stickers or labels lying on a desk, peeled from a backing sheet, applied to a jar, a laptop, a box or a shopfront; a real hand holding one; a real print shop. Shot on a real camera with soft directional light and honest colour. It is NEVER an illustrated or drawn sticker graphic, never a sheet of cartoon sticker shapes, never emoji-like badges.');
   L.push('');
   L.push('ABSOLUTELY FORBIDDEN — these are what make a slide look childish, and any one of them ruins the work:');
   L.push('cartoon or comic illustration; mascots; flat-vector illustrated people with simplified faces; stick figures; clip art; doodles; hand-drawn sketches; emoji; sticker or badge shapes scattered as decoration; rainbows; stars; sparkles; smiley faces; sad faces; speech bubbles; 3D plastic toy renders; blobby organic shapes; drop shadows; bevels; glows; page curls; ribbons; starbursts; multiple unrelated decorative objects floating in the composition.');
