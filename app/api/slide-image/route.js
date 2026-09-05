@@ -34,7 +34,7 @@ function dataUrlToFile(url, name) {
   return new File([buf], name + '.' + ext, { type: type });
 }
 
-function artDirection(brand, slide, total, title) {
+function artDirection(brand, slide, total, title, textless) {
   const c = (brand && brand.colors) || {};
   const palette = ['accent', 'support', 'dark', 'light', 'neutral']
     .filter(function (k) { return c[k]; })
@@ -62,13 +62,25 @@ function artDirection(brand, slide, total, title) {
   L.push('STANDARD: this is professional brand work by a senior graphic designer for a paying client. Editorial poster discipline — Swiss/international typographic style, Pentagram-grade restraint. It must look art-directed, expensive and adult. It is NOT a school project, NOT a template, NOT clip art.');
   L.push('');
 
-  L.push('=== THE TEXT (set exactly, nothing added, nothing translated, nothing invented) ===');
-  L.push('Headline: ' + slide.headline);
-  (slide.lines || []).forEach(function (l) { L.push('Supporting line: ' + l); });
-  L.push('Do not put any other words on the slide. No captions, no labels, no invented taglines, no lorem ipsum, no watermark, no signature.');
-  L.push('This text may be Burmese script — reproduce every glyph exactly as given, never substitute Latin letters or approximate the shapes.');
-  L.push('');
+  if (textless) {
+    /* The words are set afterwards, in a real Myanmar font, over the lower half
+       of this artwork. Asking for them here would only get a confident
+       approximation of Burmese that reads as gibberish to anyone who speaks
+       it. */
+    L.push('=== NO TEXT — THIS IS ARTWORK ONLY ===');
+    L.push('Put NO words, letters, numbers, glyphs, captions, labels, logos, wordmarks, watermarks or signatures anywhere in this image. Not one character. The words are typeset separately afterwards.');
+    L.push('It is about "' + (slide.headline || title) + '" — but express that with the picture alone.');
+    L.push('Compose it so the LOWER HALF is quiet and uncluttered — a plain colour field, an even shadow, or the soft out-of-focus part of the photograph — because a headline will be set over it. Keep the subject in the upper half or to one side.');
+    L.push('');
+  } else {
+    L.push('=== THE TEXT (set exactly, nothing added, nothing translated, nothing invented) ===');
+    L.push('Headline: ' + slide.headline);
+    (slide.lines || []).forEach(function (l) { L.push('Supporting line: ' + l); });
+    L.push('Do not put any other words on the slide. No captions, no labels, no invented taglines, no lorem ipsum, no watermark, no signature.');
+    L.push('');
+  }
 
+  if (!textless) {
   L.push('=== TYPOGRAPHY ===');
   L.push('One dominant idea per slide. The headline is enormous — it should occupy roughly a third of the canvas and be legible as a thumbnail. Set it tight: leading close to the cap height, optical kerning, no letter-spacing on large sizes.');
   L.push('Supporting lines are far smaller — about a fifth of the headline size — in a lighter weight, left-aligned to the exact same margin as the headline. Two or three lines maximum.');
@@ -80,6 +92,7 @@ function artDirection(brand, slide, total, title) {
     L.push('Type feel — a confident modern grotesque for the headline, a clean neutral sans beneath it.');
   }
   L.push('');
+  }
 
   L.push('=== LAYOUT ===');
   L.push('Build on a strict margin grid: a generous, equal margin on all four sides — about 8% of the canvas — and nothing ever breaks it except a deliberate full-bleed colour field or photograph.');
@@ -115,13 +128,15 @@ function artDirection(brand, slide, total, title) {
   L.push('');
 
   L.push('=== BRAND ===');
-  if (brand && brand.name && role !== 'body') {
+  if (textless) {
+    L.push('No logo, no mark, no brand name — the lockup is applied afterwards.');
+  } else if (brand && brand.name && role !== 'body') {
     L.push('Place the supplied logo small and quiet in one corner — about 8% of the canvas width, well inside the margin. Reproduce it exactly as supplied; do not redraw it, restyle it, recolour it, or retype any words inside it. It identifies the work; it never competes with the headline.');
   } else if (role === 'body') {
     L.push('No logo and no brand mark on this slide. A designer signs the cover and the closing slide, not every page — the deck is identified by its type and colour, not by a repeated badge.');
   }
   if (brand && brand.feel) L.push('Brand character: ' + brand.feel + '.');
-  if (total > 1) {
+  if (total > 1 && !textless) {
     L.push('Set a small, discreet slide number "' + slide.n + '/' + total + '" in the opposite corner, in the smallest type on the slide.');
   }
   L.push('');
@@ -151,14 +166,17 @@ export async function POST(request) {
   const model = (process.env.OPENAI_IMAGE_MODEL || 'gpt-image-1').trim();
   const quality = ['low', 'medium', 'high'].indexOf(brand.imageQuality) >= 0
     ? brand.imageQuality : 'medium';
-  const prompt = artDirection(brand, slide, total, title);
+  /* Burmese headlines come back as gibberish from every image model there is,
+     so for those the client asks for artwork only and sets the type itself. */
+  const textless = Boolean(body && body.textless);
+  const prompt = artDirection(brand, slide, total, title, textless);
 
   /* The logo rides along only on the cover and the closing slide. Asking the
      image model to redraw a mark five more times is five more chances for it to
      mangle the wordmark — and a designer would not stamp a badge on every page
      anyway. It also keeps the account's images-per-minute budget for the slides
      that actually need it. */
-  const marked = slide.n === 1 || slide.n === total;
+  const marked = !textless && (slide.n === 1 || slide.n === total);
   const logo = marked ? dataUrlToFile(brand.logoUrl, 'logo') : null;
 
   function send() {
