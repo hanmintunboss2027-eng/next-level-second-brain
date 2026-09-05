@@ -116,7 +116,7 @@ function Report({ tone, kicker, text, side }) {
   );
 }
 
-export default function OrgChart({ lit, format, onFormat, onRole, role, reports }) {
+export default function OrgChart({ lit, onRole, role, reports }) {
   const has = function (k) { return Boolean(lit && lit.indexOf(k) >= 0); };
   const on = function (k) { return has(k) ? ' on' : ''; };
   const sel = function (k) { return role === k ? ' sel' : ''; };
@@ -202,21 +202,18 @@ export default function OrgChart({ lit, format, onFormat, onRole, role, reports 
       <div className={'orgline' + (has('leaf') ? ' lit' : '')} />
 
       <div className={'tier leaves' + (leafOn ? ' lit' : '')}>
+        {/* The format desks are read-outs, not controls. Nothing here is picked
+            by hand: you say what you want in the command bar and the CEO routes
+            it, then the desk that did the work lights up. */}
         {LEAVES.map(function (l) {
           const active = (lit && lit.indexOf('leaf:' + l.key) >= 0) ? ' on' : '';
-          const chosen = format === l.key ? ' sel' : '';
           return (
             <div className={'leaf-wrap' + (active ? ' lit' : '')} key={l.key}>
-              <button
-                type="button"
-                className={'node leaf' + active + chosen}
-                onClick={function () { onFormat(format === l.key ? '' : l.key); }}
-                title={'Ask for a ' + l.label.toLowerCase()}
-              >
+              <div className={'node leaf' + active} aria-hidden="true">
                 <i className="led" />
                 <span className="ico">{I[l.icon]}</span>
                 <b>{l.label}</b>
-              </button>
+              </div>
               {active ? <Report tone={TONE.leaf} kicker={r.leafKicker || l.label} text={r.leaf} /> : null}
             </div>
           );
