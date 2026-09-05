@@ -1,4 +1,4 @@
-import { storageMode } from '../../../lib/store';
+import { storageMode, readJson, writeJson, KEYS } from '../../../lib/store';
 import { allNotes } from '../../../lib/docs';
 import { checkAccess, denied } from '../../../lib/auth';
 
@@ -30,7 +30,12 @@ function buildGraph(notes) {
     else if (/^Documents\//i.test(p)) group = 'doc';
     else if (/^00-Inbox\//i.test(p)) group = 'inbox';
     else if (/^(Index|CLAUDE|Memory|Decisions)\.md$/i.test(p)) group = 'core';
-    return { id: p, label: n.title || slug(p), group: group, links: 0 };
+    return {
+      id: p, label: n.title || slug(p), group: group, links: 0,
+      /* output files still get a node — the map is a record of everything the
+         brain holds — but the panel needs to say which ones the AI reads. */
+      kind: n.kind === 'output' ? 'output' : 'source'
+    };
   });
 
   const index = new Map();
@@ -86,4 +91,30 @@ export async function GET(request) {
     orphans: graph.nodes.filter(function (n) { return n.links === 0; }).length,
     graph: graph
   });
+}
+
+/* Remove one file from the uploaded vault.
+
+   A vault is imported wholesale, so until now the only way to get one bad file
+   out of it was to re-export from Obsidian and upload everything again. That is
+   too much friction for the thing people most often need: a spreadsheet from
+   another business, dropped in by accident, quietly steering every answer. */
+export async function DELETE(request) {
+  if (!checkAccess(request)) return denied();
+
+  const path = new URL(request.url).searchParams.get('path');
+  if (!path) return Response.json({ error: 'Which file?' }, { status: 400 });
+
+  const vault = await readJson(KEYS.vault, null);
+  const notes = (vault && vault.notes) || [];
+  const next = notes.filter(function (n) { return n.path !== path; });
+  if (next.length === notes.length) {
+    return Response.json({ error: 'No file with that path in the vault.' }, { status: 404 });
+  }
+
+  await writeJson(KEYS.vault, Object.assign({}, vault, {
+    notes: next,
+    updatedAt: new Date().toISOString()
+  }));
+  return Response.json({ ok: true, count: next.length });
 }
