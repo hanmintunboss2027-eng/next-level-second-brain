@@ -9,6 +9,8 @@ import { drawSlide, SIZE } from './Carousel';
    not the same kind of object.
 
    Text     → the post as it will look in the feed, plus alternative hooks.
+   Picture  → the designed square itself, drawn from the brand kit, with the
+              caption that goes under it.
    Carousel → the actual designed slides, drawn by the image model from the
               brand kit, paged through one at a time, with the caption.
    Reel     → the spoken script, and behind a tab, the shot list to film from.
@@ -454,6 +456,140 @@ function CarouselDeck({ d, brand, onCopy, copied, onCurrent }) {
   );
 }
 
+/* ------------------------------------------------------------ image post */
+
+/* An image post is one picture and one caption, and the picture is the point.
+   It is drawn by exactly the machinery that draws a carousel slide — same
+   route, same brand kit, same art direction — because a single designed square
+   and a slide out of a deck are the same object with a different number on it.
+   If the model will not draw it, the canvas renderer still hands over something
+   postable rather than a page of text about a picture that never arrived. */
+function ImagePost({ d, brand, onCopy, copied, onCurrent }) {
+  const [img, setImg] = useState('');
+  const [busy, setBusy] = useState(true);
+  const [note, setNote] = useState('');
+  const run = useRef(0);
+
+  const brandRef = useRef(brand);
+  brandRef.current = brand;
+
+  const shot = d.image;
+
+  useEffect(function () { if (onCurrent) onCurrent(img || ''); }, [img, onCurrent]);
+
+  useEffect(function () {
+    if (!shot || !(shot.headline || (shot.lines && shot.lines.length))) return;
+    const mine = ++run.current;
+    setImg('');
+    setBusy(true);
+    setNote('');
+
+    function fallback() {
+      const c = document.createElement('canvas');
+      drawSlide(c, { title: shot.headline, body: shot.lines || [] }, 0, 1, brandRef.current || {});
+      return c.toDataURL('image/png');
+    }
+
+    fetch('/api/slide-image', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ slide: shot, total: 1, title: d.title })
+    })
+      .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+      .then(function (out) {
+        if (run.current !== mine) return;
+        if (out.ok && out.j && out.j.image) {
+          setImg(out.j.image);
+        } else {
+          if (out.j && out.j.error) setNote(out.j.error);
+          setImg(fallback());
+        }
+        setBusy(false);
+      })
+      .catch(function () {
+        if (run.current !== mine) return;
+        setImg(fallback());
+        setBusy(false);
+      });
+
+    return function () { run.current += 1; };
+    /* eslint-disable-next-line react-hooks/exhaustive-deps */
+  }, [d]);
+
+  const save = useCallback(function () {
+    if (!img) return;
+    const a = document.createElement('a');
+    a.href = img;
+    a.download = (d.title || 'image-post').replace(/[^a-z0-9]+/gi, '-').toLowerCase() + '.png';
+    a.click();
+  }, [img, d.title]);
+
+  const caption = d.caption || d.body || '';
+
+  return (
+    <>
+      <Briefing d={d} />
+
+      <div className="dkind"><span className="ki">{I.deck}</span>Image post</div>
+
+      <div className="chips wide">
+        <span className="chip">{d.platform}</span>
+        <span className="chip">{d.angle}</span>
+        {caption ? <span className="chip">{caption.length} chars</span> : null}
+      </div>
+
+      <div className="viewer">
+        <div className="stagecard">
+          {img
+            ? <img className="slideimg" src={img} alt={d.title || 'Image post'} />
+            : (
+              <div className="rendering">
+                <span className="ring" />
+                <b>Drawing the picture…</b>
+                <em>on-brand · {(process.env.NEXT_PUBLIC_IMAGE_LABEL || 'gpt-image')}</em>
+              </div>
+            )}
+        </div>
+
+        {shot && shot.headline ? (
+          <div className="slidebar">
+            <span className="kick">On the picture</span>
+            <span className="count">{shot.headline}</span>
+          </div>
+        ) : null}
+
+        {note ? <p className="imgnote">{note}</p> : null}
+
+        <div className="row">
+          <button className="btn primary" type="button" disabled={busy || !img} onClick={save}>
+            {busy ? 'Drawing…' : 'Download the picture'}
+          </button>
+        </div>
+      </div>
+
+      {caption ? (
+        <section className="card2 caption">
+          <div className="cap-h">
+            <h4>Post caption</h4>
+            <span className="chars">{caption.length} chars</span>
+            <button className="btn" type="button" onClick={function () { onCopy(caption, 'caption'); }}>
+              {copied === 'caption' ? 'Copied' : 'Copy caption'}
+            </button>
+          </div>
+          <p className="body">{caption}</p>
+        </section>
+      ) : null}
+
+      {d.cta ? (
+        <section className="card2 ctacard">
+          <h4><span className="ki">{I.heart}</span>Call to action</h4>
+          <p>{d.cta}</p>
+        </section>
+      ) : null}
+    </>
+  );
+}
+
 /* ------------------------------------------------------------------- reel */
 
 function ReelScript({ d, onCopy, copied }) {
@@ -525,9 +661,10 @@ function ReelScript({ d, onCopy, copied }) {
 /* -------------------------------------------------- everything else */
 
 function LongPiece({ d, onCopy, copied }) {
-  const label = d.format === 'newsletter' ? 'Newsletter'
-    : d.format === 'longform' ? 'Long-form' : 'Image post';
-  const icon = d.format === 'newsletter' ? I.mail : d.format === 'image' ? I.deck : I.text;
+  /* Newsletters and long-form pieces: a body of text, handed over as a document.
+     Picture posts have their own panel — they are not documents. */
+  const label = d.format === 'newsletter' ? 'Newsletter' : 'Long-form';
+  const icon = d.format === 'newsletter' ? I.mail : I.text;
   const paras = (d.body || '').split(/\n{2,}/).map(function (p) { return p.trim(); }).filter(Boolean);
 
   return (
@@ -612,11 +749,13 @@ export default function Deliverable({ d, brand, running, step, onCopy, copied })
       <div className="deliv-b">
         {d.format === 'carousel'
           ? <CarouselDeck d={d} brand={brand} onCopy={onCopy} copied={copied} onCurrent={current} />
-          : d.format === 'reel'
-            ? <ReelScript d={d} onCopy={onCopy} copied={copied} />
-            : d.format === 'post'
-              ? <TextPost d={d} brand={brand} onCopy={onCopy} copied={copied} />
-              : <LongPiece d={d} onCopy={onCopy} copied={copied} />}
+          : d.format === 'image'
+            ? <ImagePost d={d} brand={brand} onCopy={onCopy} copied={copied} onCurrent={current} />
+            : d.format === 'reel'
+              ? <ReelScript d={d} onCopy={onCopy} copied={copied} />
+              : d.format === 'post'
+                ? <TextPost d={d} brand={brand} onCopy={onCopy} copied={copied} />
+                : <LongPiece d={d} onCopy={onCopy} copied={copied} />}
 
         {d.grounded && d.grounded.length ? (
           <section className="grounded">
@@ -636,7 +775,7 @@ export default function Deliverable({ d, brand, running, step, onCopy, copied })
       {zoom ? (
         <Lightbox
           title={d.title}
-          src={d.format === 'carousel' ? slideSrc : ''}
+          src={(d.format === 'carousel' || d.format === 'image') ? slideSrc : ''}
           onClose={function () { setZoom(false); }}
         >
           <h2>{d.title}</h2>
