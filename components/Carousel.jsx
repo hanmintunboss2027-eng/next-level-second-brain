@@ -198,13 +198,21 @@ function meanLuma(ctx, x, y, w, h) {
   return n ? sum / n : 0.3;
 }
 
-/* Fit the headline into at most `maxLines` by stepping the size down. */
+/* Fit the headline by stepping the size down until it fits BOTH ways: few
+   enough lines, and no line wider than the column. Myanmar text measures
+   awkwardly through a font-fallback chain, so trusting the line count alone is
+   how a headline ends up running off the right edge. */
 function fitHeadline(ctx, text, font, maxWidth, start, min, maxLines) {
   let size = start;
   for (;;) {
     ctx.font = '700 ' + size + 'px ' + font;
     const lines = wrap(ctx, text, maxWidth);
-    if (lines.length <= maxLines || size <= min) return { size: size, lines: lines.slice(0, maxLines) };
+    const widest = lines.reduce(function (m, l) {
+      return Math.max(m, ctx.measureText(l).width);
+    }, 0);
+    if ((lines.length <= maxLines && widest <= maxWidth) || size <= min) {
+      return { size: size, lines: lines.slice(0, maxLines) };
+    }
     size -= 4;
   }
 }
@@ -214,15 +222,12 @@ export async function composeSlide(canvas, bgSrc, slide, brand, opts) {
   const o = opts || {};
   const colors = (brand && brand.colors) || {};
   const support = pick(colors, 'support', '#14B3AB');
-  const headFont = '"' + ((brand && brand.headingFont) || 'Noto Sans Myanmar').replace(/["']/g, '') +
-    '", "Noto Sans Myanmar", "Padauk", sans-serif';
-  const bodyFont = '"' + ((brand && brand.bodyFont) || 'Noto Sans Myanmar').replace(/["']/g, '') +
-    '", "Noto Sans Myanmar", "Padauk", sans-serif';
+  const headName = ((brand && brand.headingFont) || 'Noto Sans Myanmar').replace(/["']/g, '');
+  const bodyName = ((brand && brand.bodyFont) || 'Noto Sans Myanmar').replace(/["']/g, '');
+  const headFont = '"' + headName + '", "Noto Sans Myanmar", "Padauk", sans-serif';
+  const bodyFont = '"' + bodyName + '", "Noto Sans Myanmar", "Padauk", sans-serif';
 
-  await readyFonts(
-    ((brand && brand.headingFont) || 'Noto Sans Myanmar').replace(/["']/g, ''),
-    ((brand && brand.bodyFont) || 'Noto Sans Myanmar').replace(/["']/g, '')
-  );
+  await readyFonts(headName, bodyName);
 
   canvas.width = SIZE;
   canvas.height = SIZE;
@@ -236,36 +241,55 @@ export async function composeSlide(canvas, bgSrc, slide, brand, opts) {
   }
 
   const M = Math.round(SIZE * 0.085);       /* the 8% margin the brief asks for */
-  const zoneTop = Math.round(SIZE * 0.52);
-  const light = meanLuma(ctx, 0, zoneTop, SIZE, SIZE - zoneTop) > 0.55;
 
-  /* A scrim, not a box: the artwork stays visible and the words stay readable
-     whatever came back. */
-  const scrim = ctx.createLinearGradient(0, zoneTop - 120, 0, SIZE);
-  const base = light ? '255,255,255' : '8,14,26';
-  scrim.addColorStop(0, 'rgba(' + base + ',0)');
-  scrim.addColorStop(0.45, 'rgba(' + base + ',0.62)');
-  scrim.addColorStop(1, 'rgba(' + base + ',0.9)');
-  ctx.fillStyle = scrim;
-  ctx.fillRect(0, zoneTop - 120, SIZE, SIZE - zoneTop + 120);
-
-  const ink = light ? '#0B1622' : '#FFFFFF';
-  const dim = light ? 'rgba(11,22,34,.7)' : 'rgba(255,255,255,.8)';
-
-  ctx.textBaseline = 'top';
+  /* The mark is measured before anything is placed. Reserving a guessed height
+     for it is how supporting lines end up printed across the logo. */
+  let mark = null;
+  const logoSrc = brand && brand.logoUrl;
+  if (logoSrc && o.mark !== false) {
+    try {
+      const im = await loadImage(logoSrc);
+      const w = Math.round(SIZE * 0.13);
+      mark = { im: im, w: w, h: Math.round(w * (im.height / im.width)) };
+    } catch (err) { mark = null; }
+  }
+  const footerH = mark ? mark.h : ((brand && brand.name) ? 26 : 0);
+  const footerGap = footerH ? 40 : 0;
 
   const maxW = SIZE - M * 2;
-  const head = fitHeadline(ctx, slide.headline || '', headFont, maxW, 108, 52, 4);
+  const head = fitHeadline(ctx, slide.headline || '', headFont, maxW, 104, 46, 4);
 
-  const lines = (slide.lines || []).slice(0, 2);
   ctx.font = '400 38px ' + bodyFont;
   const wrapped = [];
-  lines.forEach(function (l) { wrap(ctx, l, maxW).slice(0, 2).forEach(function (x) { wrapped.push(x); }); });
+  (slide.lines || []).slice(0, 2).forEach(function (l) {
+    wrap(ctx, l, maxW).slice(0, 2).forEach(function (x) { wrapped.push(x); });
+  });
 
   const headLead = head.size * 1.16;
   const bodyLead = 54;
   const blockH = head.lines.length * headLead + (wrapped.length ? 26 + wrapped.length * bodyLead : 0);
-  let y = SIZE - M - blockH - (o.footer === false ? 0 : 54);
+
+  let y = SIZE - M - footerH - footerGap - blockH;
+  const top = Math.max(Math.round(SIZE * 0.34), Math.min(y - 46, SIZE - 200));
+  if (y < top) y = top;
+
+  /* Sample the ground the words will actually sit on, then scrim it — a scrim
+     rather than a box, so the artwork stays visible underneath. */
+  const zoneTop = Math.max(0, y - 60);
+  const light = meanLuma(ctx, 0, zoneTop, SIZE, SIZE - zoneTop) > 0.55;
+  const base = light ? '255,255,255' : '8,14,26';
+  const scrim = ctx.createLinearGradient(0, zoneTop - 140, 0, SIZE);
+  scrim.addColorStop(0, 'rgba(' + base + ',0)');
+  scrim.addColorStop(0.4, 'rgba(' + base + ',0.66)');
+  scrim.addColorStop(1, 'rgba(' + base + ',0.93)');
+  ctx.fillStyle = scrim;
+  ctx.fillRect(0, Math.max(0, zoneTop - 140), SIZE, SIZE);
+
+  const ink = light ? '#0B1622' : '#FFFFFF';
+  const dim = light ? 'rgba(11,22,34,.72)' : 'rgba(255,255,255,.82)';
+
+  ctx.textBaseline = 'top';
+  ctx.textAlign = 'left';
 
   ctx.fillStyle = support;
   ctx.fillRect(M, y - 34, 88, 6);
@@ -283,16 +307,10 @@ export async function composeSlide(canvas, bgSrc, slide, brand, opts) {
 
   /* The mark goes on last, from the real file — the model mangles a wordmark
      as readily as it mangles Burmese. */
-  const logo = brand && brand.logoUrl;
-  if (logo && o.mark !== false) {
-    try {
-      const im = await loadImage(logo);
-      const w = Math.round(SIZE * 0.13);
-      const h = Math.round(w * (im.height / im.width));
-      ctx.globalAlpha = 0.95;
-      ctx.drawImage(im, M, SIZE - M - h, w, h);
-      ctx.globalAlpha = 1;
-    } catch (err) { /* no mark rather than a broken one */ }
+  if (mark) {
+    ctx.globalAlpha = 0.95;
+    ctx.drawImage(mark.im, M, SIZE - M - mark.h, mark.w, mark.h);
+    ctx.globalAlpha = 1;
   } else if (brand && brand.name) {
     ctx.fillStyle = dim;
     ctx.font = '600 26px ' + bodyFont;
@@ -302,9 +320,9 @@ export async function composeSlide(canvas, bgSrc, slide, brand, opts) {
   if (o.total > 1) {
     ctx.fillStyle = dim;
     ctx.font = '600 24px ' + bodyFont;
-    const tag = String(o.n).padStart(2, '0') + ' / ' + String(o.total).padStart(2, '0');
     ctx.textAlign = 'right';
-    ctx.fillText(tag, SIZE - M, SIZE - M - 24);
+    ctx.fillText(String(o.n).padStart(2, '0') + ' / ' + String(o.total).padStart(2, '0'),
+      SIZE - M, SIZE - M - 24);
     ctx.textAlign = 'left';
   }
 
