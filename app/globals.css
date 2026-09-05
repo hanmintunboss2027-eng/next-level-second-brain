@@ -42,7 +42,7 @@ body{
 }
 h1,h2,h3,h4{font-family:var(--font-display);font-weight:600;margin:0;line-height:1.25;letter-spacing:-.01em}
 p{margin:0}
-button{font-family:inherit}
+button{font-family:inherit;color:inherit}
 :focus-visible{outline:2px solid var(--teal);outline-offset:2px;border-radius:4px}
 .mono{font-family:var(--font-mono)}
 
@@ -170,6 +170,7 @@ button{font-family:inherit}
 
 /* nodes */
 .node{
+  color:var(--ink);
   background:var(--panel-2);border:1px solid var(--line);border-radius:13px;
   padding:14px 18px;display:flex;align-items:center;gap:13px;cursor:pointer;
   transition:border-color .2s,box-shadow .2s,transform .2s,background .2s;
@@ -1269,3 +1270,14 @@ input::placeholder,textarea::placeholder{color:var(--ink-3)}
 }
 .constellation.grow{min-height:300px}
 .gnode{cursor:default}
+
+/* ---- names read white; only the roles under them carry the tone colour ---- */
+.node b{color:#F2F7FF}
+.node.ceo b{color:#fff}
+.node .kicker{color:var(--ink-3)}
+
+/* ---- the console lost its scaffolding ----
+   Sample prompts, the format/model readout, the vault counters and the map's
+   zoom buttons were training wheels; the chart and the panel say it already.
+   The command bar now sits directly under the chart. */
+.dock{padding-top:2px}

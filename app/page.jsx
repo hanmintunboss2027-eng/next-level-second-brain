@@ -7,13 +7,6 @@ import OrgChart, { LEAVES, ROLES } from '../components/OrgChart';
 import Mic from '../components/Mic';
 import Deliverable from '../components/Deliverable';
 
-const EXAMPLES = [
-  'ကျွန်တော့် offer အကြောင်း Facebook post တစ်ခု မြန်မာလို ရေးပေးပါ',
-  'What are my three strongest proof points?',
-  'ဒီအပတ် တင်သင့်တဲ့ အကြောင်းအရာ ၅ ခု စာရင်းပေးပါ',
-  'Write a carousel about the mistake my industry keeps making'
-];
-
 const CODE_KEY = 'nlsb.code';
 
 export default function Page() {
@@ -328,11 +321,7 @@ export default function Page() {
 
   const notesCount = vault && !vault.empty ? vault.count : 0;
 
-  const linkCount = vault && vault.graph ? vault.graph.links.length : 0;
   const activeRole = ROLES[role] || ROLES.ceo;
-  const formatLabel = format
-    ? (LEAVES.filter(function (l) { return l.key === format; })[0] || {}).label
-    : 'Auto';
 
   const pill = running
     ? { cls: 'statuspill live', text: 'Live run' }
@@ -440,17 +429,10 @@ export default function Page() {
                   <p>{(stage && stage.text) || step || 'Working…'}</p>
                 </div>
               ) : (
-                <>
-                  <div className="roleinfo idle">
-                    <b>{activeRole.name}</b>
-                    <p>{activeRole.blurb}</p>
-                  </div>
-                  <div className="stats thin">
-                    <div className="stat"><b>{notesCount}</b><span>notes</span></div>
-                    <div className="stat"><b>{linkCount}</b><span>links</span></div>
-                    <div className="stat"><b>{readiness}%</b><span>brand</span></div>
-                  </div>
-                </>
+                <div className="roleinfo idle">
+                  <b>{activeRole.name}</b>
+                  <p>{activeRole.blurb}</p>
+                </div>
               )}
             </div>
           )}
@@ -458,19 +440,6 @@ export default function Page() {
 
         {/* ---- the command bar is docked at the bottom, as in a console ---- */}
         <div className="dock">
-          {/* The examples are scaffolding for the first run. Once the chart is
-              working they step aside so the format desks can report into that
-              band — but the row keeps its height, because a console that
-              changes shape mid-run reads as a glitch. */}
-          <div className={'examples' + (running || deliverable ? ' spent' : '')}>
-          {EXAMPLES.map(function (x, i) {
-          return (
-          <button className="ex" key={i} type="button" onClick={function () { setInstruction(x); }}>
-          {x}
-          </button>
-          );
-          })}
-          </div>
           <div className="cmd">
           <span className="caret">›</span>
           <textarea
@@ -490,17 +459,6 @@ export default function Page() {
           <button className="send" onClick={run} disabled={running || !instruction.trim()} title="Send">
           {running ? '•' : '↑'}
           </button>
-          </div>
-          <div className="cmdhint">
-          <span>
-          FORMAT <b>{formatLabel}</b>
-          {format
-          ? <button className="clearfmt" type="button" onClick={function () { setFormat(''); }}>clear</button>
-          : <i className="tip">click a card to force one</i>}
-          </span>
-          <span>BRAIN <b>{notesCount} notes</b></span>
-          <span>MODEL <b>{(status && status.model) || '—'}</b></span>
-          <span>ENTER to send · SHIFT+ENTER for a new line</span>
           </div>
         </div>
 
