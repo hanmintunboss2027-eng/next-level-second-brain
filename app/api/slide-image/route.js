@@ -59,6 +59,18 @@ function artDirection(brand, slide, total, title, textless) {
     : ('Art-direct and typeset ONE finished square 1:1 social image post titled "' +
       title + '". It stands alone — there is no deck around it.'));
   L.push('');
+
+  /* The single most load-bearing line in the whole brief, so it goes first.
+     Buried at the bottom next to a list of prohibitions it loses every time to
+     a subject line that says "stickers" — and back comes a sheet of smiley
+     faces. Naming the medium before anything else is what actually holds. */
+  const colourFieldOnly = /colour field only|color field only/i.test(slide.art || '');
+  if (!colourFieldOnly) {
+    L.push('MEDIUM — DECIDE THIS BEFORE ANYTHING ELSE: this is a PHOTOGRAPH, taken with a real camera, of real physical things that exist in the world. Real materials, real surfaces, real light, real depth of field, honest colour, the tiny imperfections real objects have.');
+    L.push('It is NOT an illustration. NOT a 3D render. NOT vector art. NOT a flat graphic. NOT a cartoon. If what you are about to make would be built in Illustrator or Blender rather than shot on a camera, you have the wrong answer — start again with a photograph.');
+    L.push('');
+  }
+
   L.push('STANDARD: this is professional brand work by a senior graphic designer for a paying client. Editorial poster discipline — Swiss/international typographic style, Pentagram-grade restraint. It must look art-directed, expensive and adult. It is NOT a school project, NOT a template, NOT clip art.');
   L.push('');
 
@@ -72,6 +84,7 @@ function artDirection(brand, slide, total, title, textless) {
     L.push('It is about "' + (slide.headline || title) + '" — but express that with the picture alone.');
     L.push('Compose it so the LOWER HALF is quiet and uncluttered — a plain colour field, an even shadow, or the soft out-of-focus part of the photograph — because a headline will be set over it. Keep the subject in the middle band or to one side.');
     L.push('Keep the TOP-LEFT CORNER quiet too — about an eighth of the width and height — because the brand lockup is placed there afterwards. Nothing important, no busy detail and no bright highlight in that corner.');
+    L.push('With no words to carry it, the picture is the whole post — which makes the medium rule above absolute. A photograph of the real thing. No illustrated stickers, no smiley faces, no hearts, no cartoon shapes, no 3D-rendered props, nothing drawn.');
     L.push('');
   } else {
     L.push('=== THE TEXT (set exactly, nothing added, nothing translated, nothing invented) ===');
