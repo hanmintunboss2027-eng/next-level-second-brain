@@ -106,10 +106,10 @@ function artDirection(brand, slide, total, title) {
   L.push('');
 
   L.push('=== BRAND ===');
-  if (brand && brand.name) {
-    L.push('Place the brand mark small and quiet in one corner' +
-      (brand.tagline ? ' with the tiny tagline "' + brand.tagline + '"' : '') +
-      ' — about 6% of the canvas width. It identifies the work; it does not compete with the headline.');
+  if (brand && brand.name && role !== 'body') {
+    L.push('Place the supplied logo small and quiet in one corner — about 8% of the canvas width, well inside the margin. Reproduce it exactly as supplied; do not redraw it, restyle it, recolour it, or retype any words inside it. It identifies the work; it never competes with the headline.');
+  } else if (role === 'body') {
+    L.push('No logo and no brand mark on this slide. A designer signs the cover and the closing slide, not every page — the deck is identified by its type and colour, not by a repeated badge.');
   }
   if (brand && brand.feel) L.push('Brand character: ' + brand.feel + '.');
   L.push('Set a small, discreet slide number "' + slide.n + '/' + total + '" in the opposite corner, in the smallest type on the slide.');
@@ -142,10 +142,13 @@ export async function POST(request) {
     ? brand.imageQuality : 'medium';
   const prompt = artDirection(brand, slide, total, title);
 
-  /* Only the logo goes in. A new OpenAI account is allowed a handful of input
-     images per minute, and a seven-slide deck spends that budget in seconds —
-     so the brand mark is worth an attachment and nothing else is. */
-  const logo = dataUrlToFile(brand.logoUrl, 'logo');
+  /* The logo rides along only on the cover and the closing slide. Asking the
+     image model to redraw a mark five more times is five more chances for it to
+     mangle the wordmark — and a designer would not stamp a badge on every page
+     anyway. It also keeps the account's images-per-minute budget for the slides
+     that actually need it. */
+  const marked = slide.n === 1 || slide.n === total;
+  const logo = marked ? dataUrlToFile(brand.logoUrl, 'logo') : null;
 
   function send() {
     if (logo) {
@@ -156,8 +159,11 @@ export async function POST(request) {
       form.append('input_fidelity', 'high');
       form.append(
         'prompt',
-        prompt + '\n\nThe attached image is the brand\'s own logo mark. Reproduce ' +
-        'it faithfully in the corner lockup — do not redraw, restyle or recolour it.'
+        prompt + '\n\nThe attached image is the brand\'s own logo mark. Place it in ' +
+        'the corner lockup at small size and reproduce it pixel-faithfully — do not ' +
+        'redraw it, do not restyle it, do not recolour it, and do not re-typeset any ' +
+        'words inside it. If you cannot reproduce it exactly, leave it out entirely ' +
+        'rather than approximating it.'
       );
       form.append('image[]', logo, logo.name);
       return fetch('https://api.openai.com/v1/images/edits', {
