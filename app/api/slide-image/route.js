@@ -70,7 +70,8 @@ function artDirection(brand, slide, total, title, textless) {
     L.push('=== NO TEXT — THIS IS ARTWORK ONLY ===');
     L.push('Put NO words, letters, numbers, glyphs, captions, labels, logos, wordmarks, watermarks or signatures anywhere in this image. Not one character. The words are typeset separately afterwards.');
     L.push('It is about "' + (slide.headline || title) + '" — but express that with the picture alone.');
-    L.push('Compose it so the LOWER HALF is quiet and uncluttered — a plain colour field, an even shadow, or the soft out-of-focus part of the photograph — because a headline will be set over it. Keep the subject in the upper half or to one side.');
+    L.push('Compose it so the LOWER HALF is quiet and uncluttered — a plain colour field, an even shadow, or the soft out-of-focus part of the photograph — because a headline will be set over it. Keep the subject in the middle band or to one side.');
+    L.push('Keep the TOP-LEFT CORNER quiet too — about an eighth of the width and height — because the brand lockup is placed there afterwards. Nothing important, no busy detail and no bright highlight in that corner.');
     L.push('');
   } else {
     L.push('=== THE TEXT (set exactly, nothing added, nothing translated, nothing invented) ===');
