@@ -236,7 +236,7 @@ button{font-family:inherit;color:inherit}
   .node{padding:11px 13px}
   .node b{font-size:14px}
   .node span.sub{display:none}
-  .leaves{flex-wrap:wrap;gap:8px}
+  .leaves{flex-wrap:wrap;gap:8px;width:100%}
   .leaves::before{display:none}
   .leaf-wrap::before{display:none}
   .leaf-wrap{flex:1 1 28%}
@@ -1276,6 +1276,19 @@ input::placeholder,textarea::placeholder{color:var(--ink-3)}
 .constellation.grow{min-height:300px}
 .gnode{cursor:default}
 
+/* The map at rest is a night sky, so it behaves like one. Each note breathes on
+   its own clock — the phase and the period are seeded per note in the layout,
+   which is why the sky never pulses in unison and never reshuffles between
+   visits. */
+@keyframes twinkle{
+  0%,100%{opacity:.40}
+  50%{opacity:1}
+}
+.gnode .star{animation-name:twinkle;animation-timing-function:ease-in-out;animation-iteration-count:infinite}
+@media (prefers-reduced-motion:reduce){
+  .gnode .star{animation:none;opacity:.88}
+}
+
 /* ---- names read white; only the roles under them carry the tone colour ---- */
 .node b{color:#F2F7FF}
 .node.ceo b{color:#fff}
@@ -1293,9 +1306,16 @@ input::placeholder,textarea::placeholder{color:var(--ink-3)}
    when the diagram is a fixed, upright shape sitting in the middle of its own
    space, with the input as a modest bar underneath rather than a slab. */
 .org{max-width:880px;margin:0 auto;width:100%}
-.leaves{gap:clamp(8px,1vw,14px)}
-.node.leaf{padding:13px 8px}
-.node.leaf b{font-size:12px}
+
+/* The bench sits inside the department above it, not wider than it. Six cards
+   stretched across the full width made the format row the loudest thing on the
+   chart — it is the quietest part of the job, so it is drawn small and tucked
+   in under Content. */
+.leaves{gap:clamp(5px,.9vw,11px);width:84%;margin:0 auto}
+.node.leaf{padding:10px 6px;gap:6px;border-radius:11px}
+.node.leaf .ico{width:26px;height:26px;border-radius:8px}
+.node.leaf .ico svg{width:15px;height:15px}
+.node.leaf b{font-size:11px;letter-spacing:.01em}
 
 .cmd{
   margin-top:18px;max-width:660px;margin-left:auto;margin-right:auto;
