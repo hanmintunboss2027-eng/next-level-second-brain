@@ -152,7 +152,6 @@ export default function OrgChart({ lit, format, onFormat, onRole, role, reports 
       <div className={'orgline' + (has('cmo') || has('research') ? ' lit' : '')} />
 
       <div className={'tier split' + (has('cmo') || has('research') ? ' lit' : '')}>
-        <span className={'peerlink' + (has('cmo') && has('research') ? ' lit' : '')} />
         <div className={'branch' + (has('cmo') ? ' lit' : '')}>
           <span className="nodewrap">
           <button
